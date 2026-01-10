@@ -44,6 +44,7 @@ import {
   Payee,
   stringifyMetadataValues,
   getURLFromHeaders,
+  billingSchema,
 } from '@paykit-sdk/core';
 import { z } from 'zod';
 import { medusaStatus$InboundSchema } from '../utils/mapper';
@@ -150,6 +151,15 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
       );
     }
 
+    const billingInfoParsed = billingSchema.safeParse(data?.billing);
+
+    if (data?.billing && !billingInfoParsed.success) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Invalid billing information, ${billingInfoParsed.error.message} `,
+      );
+    }
+
     if (typeof customer === 'object' && 'email' in customer) {
       const customerName = data?.name
         ? (data.name as string)
@@ -163,6 +173,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
           metadata: {
             PAYKIT_METADATA_KEY: JSON.stringify({ source: 'medusa-paykit-adapter' }),
           },
+          billing: billingInfoParsed.data ?? null,
         }),
       );
 
@@ -501,6 +512,15 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
       );
     }
 
+    const billingInfoParsed = billingSchema.safeParse(data?.billing);
+
+    if (data?.billing && !billingInfoParsed.success) {
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Invalid billing information, ${billingInfoParsed.error.message} `,
+      );
+    }
+
     const [accountHolderResult, accountHolderError] = await tryCatchAsync(
       this.paykit.customers.create({
         email: customer.email as string,
@@ -509,6 +529,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
         metadata: {
           PAYKIT_METADATA_KEY: JSON.stringify({ source: 'medusa-paykit-adapter' }),
         },
+        billing: billingInfoParsed.data ?? null,
       }),
     );
 
@@ -533,7 +554,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
       console.info('[PayKit] Updating account holder', context, data);
     }
 
-    const { account_holder, customer, idempotency_key } = context;
+    const { account_holder, customer } = context;
 
     if (!account_holder.data?.id) {
       throw new MedusaError(
@@ -543,9 +564,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
     }
 
     // If no customer context was provided, we simply don't update anything within the provider
-    if (!customer) {
-      return {};
-    }
+    if (!customer) return {};
 
     const accountHolderId = account_holder.data.id as string;
 
@@ -559,6 +578,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
             (data?.metadata as unknown as PaykitMetadata) ?? {},
           ),
         }),
+        billing: data?.billing ? billingSchema.safeParse(data.billing).data : undefined,
       }),
     );
 
