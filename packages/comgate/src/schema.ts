@@ -332,4 +332,14 @@ export interface ComgatePaymentOperationResponse {
    * The redirect of the response
    */
   redirect?: string;
+
+  /**
+   * The applepay status of the response
+   */
+  applepay: 'PAID';
+
+  /**
+   * The applepay message of the response
+   */
+  applepayMessage?: string;
 }

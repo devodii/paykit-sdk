@@ -244,8 +244,9 @@ export class ComgateProvider extends AbstractPayKitProvider implements PayKitPro
   createPayment = async (params: CreatePaymentSchema): Promise<Payment> => {
     const { error, data } = createPaymentSchema.safeParse(params);
 
-    if (error)
+    if (error) {
       throw ValidationError.fromZodError(error, this.providerName, 'createPayment');
+    }
 
     const { customer } = data;
 
@@ -297,7 +298,7 @@ export class ComgateProvider extends AbstractPayKitProvider implements PayKitPro
       customer: customer,
       item_id: data.item_id ?? null,
       requires_action: false,
-      payment_url: '',
+      payment_url: response.value!.redirect ?? null,
     };
 
     return paymentObject;
