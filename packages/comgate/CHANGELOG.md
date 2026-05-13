@@ -1,5 +1,11 @@
 # @paykit-sdk/comgate
 
+## 1.0.6
+
+### Patch Changes
+
+- 684dfc9: fix: pass redirect url for payment creation
+
 ## 1.0.5
 
 ### Patch Changes
