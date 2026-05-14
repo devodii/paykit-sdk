@@ -502,12 +502,25 @@ export class GoPayProvider extends AbstractPayKitProvider implements PayKitProvi
       );
     }
 
+    const successUrl = data.provider_metadata?.success_url as string;
+
+    if (!successUrl) {
+      throw new ConfigurationError(
+        'success_url is required, this is the URL to redirect the user to the success page after the payment is successful',
+        {
+          provider: this.providerName,
+          missingKeys: ['success_url'],
+        },
+      );
+    }
+
     const goPayRequest: GoPayPaymentRequest = {
       payer: {
         allowed_payment_instruments: ['PAYMENT_CARD', 'BANK_ACCOUNT'],
         default_payment_instrument: 'PAYMENT_CARD',
         contact: { email: data.customer.email as string },
       },
+      callback: { return_url: successUrl, notification_url: this.opts.webhookUrl },
       target: { type: 'ACCOUNT', goid: parseInt(this.opts.goId) },
       amount: data.amount,
       currency: data.currency ?? 'CZK',
