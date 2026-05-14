@@ -32,6 +32,10 @@ class SomeProviderSDK {
   }
 }
 
+type WithProviderRawEvents = {
+  [K in string as `provider.${K}`]: any;
+};
+
 export interface WithProviderMetadata extends ProviderMetadataRegistry {}
 
 /**
@@ -59,7 +63,7 @@ const providerName = 'with-sdk';
  */
 export class WithProviderSDK
   extends AbstractPayKitProvider
-  implements PayKitProvider<WithProviderMetadata, any, Record<string, any>>
+  implements PayKitProvider<WithProviderMetadata, any, WithProviderRawEvents>
 {
   readonly providerName = providerName;
   private sdk: SomeProviderSDK | null = null;
@@ -97,40 +101,50 @@ export class WithProviderSDK
   createCheckout = (params: CreateCheckoutSchema): Promise<Checkout> =>
     this._ni('createCheckout');
 
-  retrieveCheckout = (id: string): Promise<Checkout> => this._ni('retrieveCheckout');
+  retrieveCheckout = (id: string): Promise<Checkout> =>
+    this._ni('retrieveCheckout');
 
-  updateCheckout = (id: string, params: UpdateCheckoutSchema): Promise<Checkout> =>
-    this._ni('updateCheckout');
+  updateCheckout = (
+    id: string,
+    params: UpdateCheckoutSchema,
+  ): Promise<Checkout> => this._ni('updateCheckout');
 
   deleteCheckout = (id: string): Promise<null> => this._ni('deleteCheckout');
 
   createPayment = (params: CreatePaymentSchema): Promise<Payment> =>
     this._ni('createPayment');
 
-  retrievePayment = (id: string): Promise<Payment | null> => this._ni('retrievePayment');
+  retrievePayment = (id: string): Promise<Payment | null> =>
+    this._ni('retrievePayment');
 
   updatePayment = (id: string, params: UpdatePaymentSchema): Promise<Payment> =>
     this._ni('updatePayment');
 
   deletePayment = (id: string): Promise<null> => this._ni('deletePayment');
 
-  capturePayment = (id: string, params: CapturePaymentSchema): Promise<Payment> =>
-    this._ni('capturePayment');
+  capturePayment = (
+    id: string,
+    params: CapturePaymentSchema,
+  ): Promise<Payment> => this._ni('capturePayment');
 
   cancelPayment = (id: string): Promise<Payment> => this._ni('cancelPayment');
 
   createCustomer = (params: CreateCustomerParams): Promise<Customer> =>
     this._ni('createCustomer');
 
-  retrieveCustomer = (id: string): Promise<Customer> => this._ni('retrieveCustomer');
+  retrieveCustomer = (id: string): Promise<Customer> =>
+    this._ni('retrieveCustomer');
 
-  updateCustomer = (id: string, params: UpdateCustomerParams): Promise<Customer> =>
-    this._ni('updateCustomer');
+  updateCustomer = (
+    id: string,
+    params: UpdateCustomerParams,
+  ): Promise<Customer> => this._ni('updateCustomer');
 
   deleteCustomer = (id: string): Promise<null> => this._ni('deleteCustomer');
 
-  createSubscription = (params: CreateSubscriptionSchema): Promise<Subscription> =>
-    this._ni('createSubscription');
+  createSubscription = (
+    params: CreateSubscriptionSchema,
+  ): Promise<Subscription> => this._ni('createSubscription');
 
   retrieveSubscription = (id: string): Promise<Subscription> =>
     this._ni('retrieveSubscription');
@@ -140,7 +154,8 @@ export class WithProviderSDK
     params: UpdateSubscriptionSchema,
   ): Promise<Subscription> => this._ni('updateSubscription');
 
-  deleteSubscription = (id: string): Promise<null> => this._ni('deleteSubscription');
+  deleteSubscription = (id: string): Promise<null> =>
+    this._ni('deleteSubscription');
 
   cancelSubscription = (id: string): Promise<Subscription> =>
     this._ni('cancelSubscription');
@@ -151,5 +166,6 @@ export class WithProviderSDK
   handleWebhook = (
     payload: WebhookHandlerConfig,
     webhookSecret: string,
-  ): Promise<Array<WebhookEventPayload>> => this._ni('handleWebhook');
+  ): Promise<Array<WebhookEventPayload<WithProviderRawEvents>>> =>
+    this._ni('handleWebhook');
 }
