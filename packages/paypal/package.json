@@ -22,8 +22,7 @@
   "devDependencies": {
     "@paykit-sdk/core": "workspace:*",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2",
-    "zod": "^3.24.2"
+    "typescript": "^5.9.2"
   },
   "dependencies": {
     "@paypal/paypal-server-sdk": "^1.1.0",

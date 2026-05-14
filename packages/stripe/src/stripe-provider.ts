@@ -48,9 +48,9 @@ import {
   isIdCustomer,
   isEmailCustomer,
   refundReasonMatcher,
+  Schema,
 } from '@paykit-sdk/core';
 import Stripe from 'stripe';
-import { z } from 'zod';
 import {
   paykitCheckout$InboundSchema,
   paykitCustomer$InboundSchema,
@@ -65,12 +65,10 @@ export interface StripeOptions extends PaykitProviderOptions<Stripe.StripeConfig
 }
 
 const stripeOptionsSchema = schema<Pick<StripeOptions, 'apiKey' | 'debug'>>()(
-  z
-    .object({
-      apiKey: z.string(),
-      debug: z.boolean().optional(),
-    })
-    .passthrough(),
+  Schema.object({
+    apiKey: Schema.string(),
+    debug: Schema.boolean().optional(),
+  }).passthrough(),
 );
 
 const providerName = 'stripe';

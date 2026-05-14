@@ -343,9 +343,6 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.2
-      zod:
-        specifier: ^3.24.2
-        version: 3.25.76
 
   packages/polar:
     dependencies:
@@ -362,9 +359,6 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.2
-      zod:
-        specifier: ^3.24.2
-        version: 3.25.76
 
   packages/react:
     devDependencies:
@@ -465,9 +459,6 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.2
-      zod:
-        specifier: ^3.24.2
-        version: 3.25.76
 
   packages/ui:
     dependencies:
@@ -14239,6 +14230,10 @@ snapshots:
     dependencies:
       ms: 2.1.2
 
+  debug@4.4.1:
+    dependencies:
+      ms: 2.1.3
+
   debug@4.4.1(supports-color@8.1.1):
     dependencies:
       ms: 2.1.3
@@ -15554,14 +15549,14 @@ snapshots:
   http-proxy-agent@7.0.2:
     dependencies:
       agent-base: 7.1.4
-      debug: 4.4.1(supports-color@8.1.1)
+      debug: 4.4.1
     transitivePeerDependencies:
       - supports-color
 
   https-proxy-agent@7.0.6:
     dependencies:
       agent-base: 7.1.4
-      debug: 4.4.1(supports-color@8.1.1)
+      debug: 4.4.1
     transitivePeerDependencies:
       - supports-color
 
@@ -18853,7 +18848,7 @@ snapshots:
       cac: 6.7.14
       chokidar: 4.0.3
       consola: 3.4.2
-      debug: 4.4.1(supports-color@8.1.1)
+      debug: 4.4.1
       esbuild: 0.25.11
       fix-dts-default-cjs-exports: 1.0.1
       joycon: 3.1.1

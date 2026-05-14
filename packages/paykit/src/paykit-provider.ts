@@ -23,7 +23,6 @@ import {
   UpdateSubscriptionSchema,
 } from './resources/subscription';
 import { WebhookEventPayload } from './resources/webhook';
-import { PaykitProviderOptions } from './types';
 import { HandleWebhookParams } from './webhook-provider';
 
 export interface PayKitProvider {

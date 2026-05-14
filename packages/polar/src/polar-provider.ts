@@ -43,6 +43,7 @@ import {
   PAYKIT_METADATA_KEY,
   stringifyMetadataValues,
   refundReasonMatcher,
+  Schema,
 } from '@paykit-sdk/core';
 import { Polar, SDKOptions, ServerList } from '@polar-sh/sdk';
 import { CountryAlpha2Input } from '@polar-sh/sdk/models/components/addressinput.js';
@@ -58,7 +59,6 @@ import { SubscriptionUpdateProduct } from '@polar-sh/sdk/models/components/subsc
 import { SubscriptionUpdateTrial } from '@polar-sh/sdk/models/components/subscriptionupdatetrial.js';
 import { Refunds } from '@polar-sh/sdk/sdk/refunds.js';
 import { validateEvent } from '@polar-sh/sdk/webhooks';
-import { z } from 'zod';
 import {
   paykitCheckout$InboundSchema,
   paykitCustomer$InboundSchema,
@@ -81,13 +81,13 @@ export interface PolarOptions
 }
 
 const polarOptionsSchema = schema<PolarOptions>()(
-  z.object({
-    accessToken: z.string(),
-    isSandbox: z.boolean(),
-    debug: z.boolean().optional(),
-    userAgent: z.string().optional(),
-    retryConfig: z.any().optional(),
-    timeoutMs: z.number().optional(),
+  Schema.object({
+    accessToken: Schema.string(),
+    isSandbox: Schema.boolean(),
+    debug: Schema.boolean().optional(),
+    userAgent: Schema.string().optional(),
+    retryConfig: Schema.any().optional(),
+    timeoutMs: Schema.number().optional(),
   }),
 );
 

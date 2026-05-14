@@ -29,6 +29,7 @@ import {
   OperationFailedError,
   createCheckoutSchema,
   ValidationError,
+  Schema,
 } from '@paykit-sdk/core';
 import {
   CheckoutPaymentIntent,
@@ -39,7 +40,6 @@ import {
   PaymentsController,
   OrderApplicationContextUserAction,
 } from '@paypal/paypal-server-sdk';
-import { z } from 'zod';
 import { SubscriptionsController } from './controllers/subscription';
 import { WebhookController } from './controllers/webhook';
 import { VerifyWebhookStatus } from './schema';
@@ -68,11 +68,11 @@ export interface PayPalOptions extends PaykitProviderOptions {
 }
 
 const paypalOptionsSchema = schema<PayPalOptions>()(
-  z.object({
-    clientId: z.string(),
-    clientSecret: z.string(),
-    isSandbox: z.boolean(),
-    debug: z.boolean().optional(),
+  Schema.object({
+    clientId: Schema.string(),
+    clientSecret: Schema.string(),
+    isSandbox: Schema.boolean(),
+    debug: Schema.boolean().optional(),
   }),
 );
 
