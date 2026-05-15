@@ -64,7 +64,9 @@ export type WebhookHandlerConfig = {
  * @template TRawEvents - Map of Namespaced Event Name -> Data Type
  * @example { 'stripe.payment_intent.succeeded': Stripe.PaymentIntent }
  */
-export class Webhook<TRawEvents extends Record<string, any> = Record<string, any>> {
+export class Webhook<
+  TRawEvents extends Record<string, any> = Record<string, any>,
+> {
   private handlers: Map<string, ((event: any) => Promise<void>)[]> = new Map();
   private config: WebhookSetupConfig<TRawEvents> | null = null;
 
@@ -78,7 +80,7 @@ export class Webhook<TRawEvents extends Record<string, any> = Record<string, any
     handler: T extends keyof StandardEventHandlers
       ? StandardEventHandlers[T]
       : T extends keyof TRawEvents
-        ? (event: WebhookEvent<TRawEvents[T]>) => Promise<any>
+        ? (data: TRawEvents[T]) => Promise<any>
         : never,
   ): Webhook<TRawEvents> {
     if (!this.config) {
@@ -106,9 +108,11 @@ export class Webhook<TRawEvents extends Record<string, any> = Record<string, any
 
     for (const event of events) {
       const matchedHandlers = this.handlers.get(event.type);
+
       if (matchedHandlers) {
         for (const handler of matchedHandlers) {
-          executionPromises.push(handler(event));
+          const payload = event.is_raw ? event.data : event;
+          executionPromises.push(handler(payload));
         }
       }
     }

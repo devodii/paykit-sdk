@@ -12,7 +12,7 @@ import type { EndpointHandler, EndpointPath } from './endpoints';
  * const endpoints = createEndpointHandlers(paykit);
  * ```
  */
-export function createEndpointHandlers(paykit: PayKit): {
+export function createEndpointHandlers(paykit: PayKit<any>): {
   [K in EndpointPath]: EndpointHandler<K>;
 } {
   return {
@@ -28,7 +28,8 @@ export function createEndpointHandlers(paykit: PayKit): {
 
     '/subscription/create': params => paykit.subscriptions.create(params),
     '/subscription/retrieve': id => paykit.subscriptions.retrieve(id),
-    '/subscription/update': (id, params) => paykit.subscriptions.update(id, params),
+    '/subscription/update': (id, params) =>
+      paykit.subscriptions.update(id, params),
     '/subscription/cancel': id => paykit.subscriptions.cancel(id),
     '/subscription/delete': id => paykit.subscriptions.delete(id),
 

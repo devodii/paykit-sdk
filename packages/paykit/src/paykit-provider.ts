@@ -51,7 +51,9 @@ export interface PayKitProvider<
   readonly _native: TNativeClient;
 
   /** Checkout */
-  createCheckout(params: CreateCheckoutSchema<TMetadata['checkout']>): Promise<Checkout>;
+  createCheckout(
+    params: CreateCheckoutSchema<TMetadata['checkout']>,
+  ): Promise<Checkout>;
   retrieveCheckout(id: string): Promise<Checkout | null>;
   updateCheckout(
     id: string,
@@ -60,7 +62,9 @@ export interface PayKitProvider<
   deleteCheckout(id: string): Promise<null>;
 
   /** Customer */
-  createCustomer(params: CreateCustomerParams<TMetadata['customer']>): Promise<Customer>;
+  createCustomer(
+    params: CreateCustomerParams<TMetadata['customer']>,
+  ): Promise<Customer>;
   updateCustomer(
     id: string,
     params: UpdateCustomerParams<TMetadata['customer']>,
@@ -81,7 +85,9 @@ export interface PayKitProvider<
   retrieveSubscription(id: string): Promise<Subscription | null>;
 
   /** Payment */
-  createPayment(params: CreatePaymentSchema<TMetadata['payment']>): Promise<Payment>;
+  createPayment(
+    params: CreatePaymentSchema<TMetadata['payment']>,
+  ): Promise<Payment>;
   updatePayment(
     id: string,
     params: UpdatePaymentSchema<TMetadata['payment']>,
@@ -92,7 +98,9 @@ export interface PayKitProvider<
   cancelPayment(id: string): Promise<Payment>;
 
   /** Refund */
-  createRefund(params: CreateRefundSchema<TMetadata['refund']>): Promise<Refund>;
+  createRefund(
+    params: CreateRefundSchema<TMetadata['refund']>,
+  ): Promise<Refund>;
 
   /** Webhook */
   handleWebhook(

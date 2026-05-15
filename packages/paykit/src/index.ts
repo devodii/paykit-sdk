@@ -1,17 +1,5 @@
 import { z } from 'zod';
-import { PayKitProvider, ProviderMetadataRegistry } from './paykit-provider';
-import { CreateRefundSchema } from './resources';
-import { CreateCheckoutSchema, UpdateCheckoutSchema } from './resources/checkout';
-import { CreateCustomerParams, UpdateCustomerParams } from './resources/customer';
-import {
-  CapturePaymentSchema,
-  CreatePaymentSchema,
-  UpdatePaymentSchema,
-} from './resources/payment';
-import {
-  CreateSubscriptionSchema,
-  UpdateSubscriptionSchema,
-} from './resources/subscription';
+import { PayKitProvider } from './paykit-provider';
 import { Webhook, WebhookSetupConfig } from './webhook-provider';
 
 export const PAYKIT_METADATA_KEY = '__paykit';
@@ -20,21 +8,16 @@ export const PAYKIT_METADATA_KEY = '__paykit';
  * @template TMetadata - The registry of provider-specific metadata types
  * @template TNative - The type of the underlying native SDK client
  */
-class PayKit<
-  TMetadata extends ProviderMetadataRegistry = ProviderMetadataRegistry,
-  TNative = any,
-  TRawEvents extends Record<string, any> = Record<string, any>,
-> {
-  constructor(private provider: PayKitProvider<TMetadata, TNative, TRawEvents>) {}
+class PayKit<P extends PayKitProvider<any, any, any>> {
+  constructor(private provider: P) {}
 
   /**
    * Access the underlying native SDK (e.g., Stripe, Adyen) directly
    * with full type safety.
    */
-  get _native(): TNative {
+  get _native(): P['_native'] {
     return this.provider._native;
   }
-
   /**
    * Access the provider's name (e.g., 'stripe')
    */
@@ -42,70 +25,81 @@ class PayKit<
     return this.provider.providerName;
   }
 
-  checkouts = {
-    create: (params: CreateCheckoutSchema<TMetadata['checkout']>) =>
-      this.provider.createCheckout(params),
+  get customers() {
+    return {
+      create: (params: Parameters<P['createCustomer']>[0]) =>
+        this.provider.createCustomer(params),
 
-    retrieve: (id: string) => this.provider.retrieveCheckout(id),
+      update: (id: string, params: Parameters<P['updateCustomer']>[1]) =>
+        this.provider.updateCustomer(id, params),
 
-    update: (id: string, params: UpdateCheckoutSchema<TMetadata['checkout']>) =>
-      this.provider.updateCheckout(id, params),
+      retrieve: (id: string) => this.provider.retrieveCustomer(id),
+      delete: (id: string) => this.provider.deleteCustomer(id),
+    };
+  }
 
-    delete: (id: string) => this.provider.deleteCheckout(id),
-  };
+  get checkouts() {
+    return {
+      create: (params: Parameters<P['createCheckout']>[0]) =>
+        this.provider.createCheckout(params),
 
-  customers = {
-    create: (params: CreateCustomerParams<TMetadata['customer']>) =>
-      this.provider.createCustomer(params),
+      retrieve: (id: string) => this.provider.retrieveCheckout(id),
 
-    update: (id: string, params: UpdateCustomerParams<TMetadata['customer']>) =>
-      this.provider.updateCustomer(id, params),
+      update: (id: string, params: Parameters<P['updateCheckout']>[1]) =>
+        this.provider.updateCheckout(id, params),
 
-    retrieve: (id: string) => this.provider.retrieveCustomer(id),
+      delete: (id: string) => this.provider.deleteCheckout(id),
+    };
+  }
 
-    delete: (id: string) => this.provider.deleteCustomer(id),
-  };
+  get payments() {
+    return {
+      create: (params: Parameters<P['createPayment']>[0]) =>
+        this.provider.createPayment(params),
 
-  subscriptions = {
-    create: (params: CreateSubscriptionSchema<TMetadata['subscription']>) =>
-      this.provider.createSubscription(params),
+      retrieve: (id: string) => this.provider.retrievePayment(id),
 
-    update: (id: string, params: UpdateSubscriptionSchema<TMetadata['subscription']>) =>
-      this.provider.updateSubscription(id, params),
+      update: (id: string, params: Parameters<P['updatePayment']>[1]) =>
+        this.provider.updatePayment(id, params),
 
-    cancel: (id: string) => this.provider.cancelSubscription(id),
+      capture: (id: string, params: Parameters<P['capturePayment']>[1]) =>
+        this.provider.capturePayment(id, params),
 
-    retrieve: (id: string) => this.provider.retrieveSubscription(id),
+      delete: (id: string) => this.provider.deletePayment(id),
+      cancel: (id: string) => this.provider.cancelPayment(id),
+    };
+  }
 
-    delete: (id: string) => this.provider.deleteSubscription(id),
-  };
+  get subscriptions() {
+    return {
+      create: (params: Parameters<P['createSubscription']>[0]) =>
+        this.provider.createSubscription(params),
 
-  payments = {
-    create: (params: CreatePaymentSchema<TMetadata['payment']>) =>
-      this.provider.createPayment(params),
+      update: (id: string, params: Parameters<P['updateSubscription']>[1]) =>
+        this.provider.updateSubscription(id, params),
 
-    retrieve: (id: string) => this.provider.retrievePayment(id),
+      cancel: (id: string) => this.provider.cancelSubscription(id),
+      retrieve: (id: string) => this.provider.retrieveSubscription(id),
+      delete: (id: string) => this.provider.deleteSubscription(id),
+    };
+  }
 
-    update: (id: string, params: UpdatePaymentSchema<TMetadata['payment']>) =>
-      this.provider.updatePayment(id, params),
+  get refunds() {
+    return {
+      create: (params: Parameters<P['createRefund']>[0]) =>
+        this.provider.createRefund(params),
+    };
+  }
 
-    capture: (id: string, params: CapturePaymentSchema) =>
-      this.provider.capturePayment(id, params),
+  get webhooks() {
+    // Extract the raw events type from the provider's handleWebhook return type
+    type RawEvents = P extends PayKitProvider<any, any, infer R> ? R : any;
 
-    delete: (id: string) => this.provider.deletePayment(id),
-
-    cancel: (id: string) => this.provider.cancelPayment(id),
-  };
-
-  refunds = {
-    create: (params: CreateRefundSchema<TMetadata['refund']>) =>
-      this.provider.createRefund(params),
-  };
-
-  webhooks = {
-    setup: (config: Omit<WebhookSetupConfig<TRawEvents>, 'provider'>) =>
-      new Webhook<TRawEvents>().setup({ ...config, provider: this.provider }),
-  };
+    return {
+      setup: (config: Omit<WebhookSetupConfig<RawEvents>, 'provider'>) =>
+        new Webhook<RawEvents>().setup({ ...config, provider: this.provider }),
+    };
+  }
 }
 export { PayKit, PayKitProvider };
 

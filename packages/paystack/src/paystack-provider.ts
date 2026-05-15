@@ -44,6 +44,7 @@ import { z } from 'zod';
 import {
   PaystackCustomer,
   PaystackInitializeResponse,
+  PaystackRawEvents,
   PaystackRefund,
   PaystackResponse,
   PaystackSubscription,
@@ -69,15 +70,6 @@ interface PaystackMetadata extends ProviderMetadataRegistry {
     currency?: string;
   };
 }
-
-type PaystackRawEvents = Record<string, unknown> & {
-  'paystack.charge.success': PaystackTransaction;
-  'paystack.charge.failed': PaystackTransaction;
-  'paystack.customer.create': PaystackCustomer;
-  'paystack.subscription.create': PaystackSubscription;
-  'paystack.subscription.not_renew': PaystackSubscription;
-  'paystack.subscription.disable': PaystackSubscription;
-};
 
 export interface PaystackOptions extends PaykitProviderOptions {
   /**
@@ -614,7 +606,7 @@ export class PaystackProvider
       id: `paystack:${event.event}:${crypto.randomUUID()}`,
       type: `paystack.${event.event}`,
       created: Math.floor(Date.now() / 1000),
-      data: event.data,
+      data: event.data as any,
       is_raw: true,
     });
 
