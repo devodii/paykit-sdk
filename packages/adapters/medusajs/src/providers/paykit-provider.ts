@@ -45,6 +45,7 @@ import {
   stringifyMetadataValues,
   getURLFromHeaders,
   billingSchema,
+  parseCustomerName,
 } from '@paykit-sdk/core';
 import { z } from 'zod';
 import { medusaStatus$InboundSchema } from '../utils/mapper';
@@ -152,7 +153,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
     let customer: Payee | undefined;
 
     if (context?.account_holder?.data?.id) {
-      customer = context.account_holder.data.id as Payee;
+      customer = { id: context.account_holder.data.id as string };
     }
 
     if (data?.email) {
@@ -176,9 +177,10 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
     }
 
     if (typeof customer === 'object' && 'email' in customer) {
-      const customerName = data?.name
-        ? (data.name as string)
-        : (customer.email.split('@')[0] as string);
+      const customerName = parseCustomerName({
+        name: data?.name as string | undefined,
+        email: customer.email,
+      }).fullName;
 
       const [createdCustomer, createError] = await tryCatchAsync(
         this.paykit.customers.create({
@@ -208,10 +210,8 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
           );
         }
       } else {
-        customer = createdCustomer.id;
+        customer = { id: createdCustomer.id };
       }
-    } else {
-      customer = customer as string;
     }
 
     intent.customer = customer;
@@ -588,7 +588,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
       await tryCatchAsync(
         this.paykit.customers.create({
           email: customer.email as string,
-          name: customer.email.split('@')[0] as string,
+          name: parseCustomerName({ email: customer.email as string }).fullName,
           phone: customer.phone as string,
           metadata: {
             PAYKIT_METADATA_KEY: JSON.stringify({
@@ -638,7 +638,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
       await tryCatchAsync(
         this.paykit.customers.update(accountHolderId, {
           email: customer.email as string,
-          name: customer.email.split('@')[0] as string,
+          name: parseCustomerName({ email: customer.email as string }).fullName,
           phone: customer.phone as string,
           ...((data?.metadata as unknown as PaykitMetadata) && {
             metadata: stringifyMetadataValues(

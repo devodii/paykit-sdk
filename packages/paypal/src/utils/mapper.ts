@@ -15,22 +15,21 @@ import {
 } from '@paypal/paypal-server-sdk';
 import { PayPalSubscription } from '../types';
 
-export const paykitPayee$InboundSchema = (
+/**
+ * @internal
+ */
+export const Payee$inboundSchema = (
   payee: Payer | string,
-): Payee => {
-  let customer: Payee = { email: '' };
-
-  if (typeof payee === 'string') customer = payee;
-  else if (payee?.emailAddress)
-    customer = { email: payee?.emailAddress };
-
-  return customer;
+): Payee | null => {
+  if (typeof payee === 'string') return { id: payee };
+  if (payee?.emailAddress) return { email: payee.emailAddress };
+  return null;
 };
 
 /**
- * Refund
+ * @internal
  */
-export const paykitRefund$InboundSchema = (
+export const Refund$inboundSchema = (
   refund: PayPalRefund,
 ): Refund => {
   return {
@@ -47,9 +46,9 @@ export const paykitRefund$InboundSchema = (
 };
 
 /**
- * Checkout
+ * @internal
  */
-export const paykitCheckout$InboundSchema = (
+export const Checkout$inboundSchema = (
   order: Order,
 ): Checkout => {
   return {
@@ -60,7 +59,7 @@ export const paykitCheckout$InboundSchema = (
       order.purchaseUnits?.[0]?.amount?.value || '0',
     ),
     currency: order.purchaseUnits?.[0]?.amount?.currencyCode || 'USD',
-    customer: paykitPayee$InboundSchema(order.payer ?? {}),
+    customer: Payee$inboundSchema(order.payer ?? {}),
     session_type: 'one_time',
     products: [
       {
@@ -76,9 +75,9 @@ export const paykitCheckout$InboundSchema = (
 };
 
 /**
- * Payment
+ * @internal
  */
-export const paykitPayment$InboundSchema = (
+export const Payment$inboundSchema = (
   order: Order,
 ): Payment => {
   const statusMap: Record<string, Payment['status']> = {
@@ -103,7 +102,7 @@ export const paykitPayment$InboundSchema = (
   return {
     id: order.id!,
     status,
-    customer: paykitPayee$InboundSchema(order.payer ?? {}),
+    customer: Payee$inboundSchema(order.payer ?? {}),
     amount: parseFloat(
       order.purchaseUnits?.[0]?.amount?.value || '0',
     ),
@@ -118,9 +117,9 @@ export const paykitPayment$InboundSchema = (
 };
 
 /**
- * Subscription
+ * @internal
  */
-export const paykitSubscription$InboundSchema = (
+export const Subscription$inboundSchema = (
   subscription: PayPalSubscription,
 ): Subscription => {
   const statusMap: Record<string, Subscription['status']> = {
@@ -135,7 +134,6 @@ export const paykitSubscription$InboundSchema = (
   const status =
     statusMap[subscription.status ?? statusMap.APPROVAL_PENDING];
 
-  // Extract billing interval from cycle_executions or default to 'month'
   const tenureType =
     subscription.billing_info?.cycle_executions?.[0]?.tenure_type?.toUpperCase();
   const billingIntervalMap: Record<
@@ -153,7 +151,6 @@ export const paykitSubscription$InboundSchema = (
       ? billingIntervalMap[tenureType]
       : 'month';
 
-  // Calculate period end from start_time + billing interval
   const periodStart = subscription.start_time
     ? new Date(subscription.start_time)
     : new Date();
@@ -186,9 +183,11 @@ export const paykitSubscription$InboundSchema = (
     return end;
   })();
 
+  const email = subscription.subscriber?.email_address;
+
   return {
     id: subscription.id,
-    customer: { email: subscription.subscriber?.email_address ?? '' },
+    customer: email ? { email } : null,
     status,
     item_id: subscription.plan_id,
     current_period_start: periodStart,
@@ -205,7 +204,10 @@ export const paykitSubscription$InboundSchema = (
   };
 };
 
-export const paykitInvoice$InboundSchema = (
+/**
+ * @internal
+ */
+export const Invoice$inboundSchema = (
   order: Order,
 ): Invoice => {
   return {
@@ -214,7 +216,7 @@ export const paykitInvoice$InboundSchema = (
       order.purchaseUnits?.[0]?.amount?.value || '0',
     ),
     currency: order.purchaseUnits?.[0]?.amount?.currencyCode || 'USD',
-    customer: paykitPayee$InboundSchema(order.payer ?? {}),
+    customer: Payee$inboundSchema(order.payer ?? {}),
     status: 'paid',
     paid_at: new Date().toISOString(),
     metadata: omitInternalMetadata(
@@ -234,7 +236,10 @@ export const paykitInvoice$InboundSchema = (
 
 // Webhooks
 
-export const paykitPaymentWebhook$InboundSchema = (
+/**
+ * @internal
+ */
+export const PaymentWebhook$inboundSchema = (
   resource: Record<string, unknown>,
 ): Payment => {
   const statusMap: Record<string, Payment['status']> = {
@@ -249,17 +254,15 @@ export const paykitPaymentWebhook$InboundSchema = (
   const status =
     statusMap[(resource.status as string) ?? 'CREATED'] ?? 'pending';
 
-  // Handle payer - webhook uses snake_case
   const payer = resource.payer as Record<string, unknown> | undefined;
-  let customer: Payee = { email: '' };
+  let customer: Payee | null = null;
 
   if (payer?.payer_id) {
-    customer = payer.payer_id as string;
+    customer = { id: payer.payer_id as string };
   } else if (payer?.email_address) {
     customer = { email: payer.email_address as string };
   }
 
-  // Handle purchase_units - webhook uses snake_case
   const purchaseUnits =
     (resource.purchase_units as
       | Record<string, unknown>[]
@@ -280,7 +283,6 @@ export const paykitPaymentWebhook$InboundSchema = (
     }
   })();
 
-  // Use sku from items if available, otherwise use reference_id
   const itemId =
     (items[0]?.sku as string | undefined) ??
     (firstUnit.reference_id as string | undefined) ??
@@ -299,20 +301,22 @@ export const paykitPaymentWebhook$InboundSchema = (
   };
 };
 
-export const paykitPaymentCaptureWebhook$InboundSchema = (
+/**
+ * @internal
+ */
+export const PaymentCaptureWebhook$inboundSchema = (
   capture: Record<string, unknown>,
 ): Payment => {
   const statusMap: Record<string, Payment['status']> = {
     COMPLETED: 'succeeded',
     PENDING: 'pending',
-    REFUNDED: 'succeeded', // Refunded but was successful
+    REFUNDED: 'succeeded',
     PARTIALLY_REFUNDED: 'succeeded',
   };
 
   const status =
     statusMap[(capture.status as string) ?? 'PENDING'] ?? 'pending';
 
-  // Get order_id from supplementary_data for the payment id
   const supplementaryData = capture.supplementary_data as
     | Record<string, unknown>
     | undefined;
@@ -339,24 +343,26 @@ export const paykitPaymentCaptureWebhook$InboundSchema = (
   return {
     id: orderId,
     status,
-    customer: { email: '' }, // Not available in capture event
+    customer: null,
     amount: parseFloat((amount?.value as string | undefined) ?? '0'),
     currency: (amount?.currency_code as string | undefined) ?? 'USD',
     metadata: omitInternalMetadata(metadata),
-    item_id: '', // Not available in capture event
+    item_id: '',
     requires_action: false,
     payment_url: null,
   };
 };
 
-export const paykitRefundWebhook$InboundSchema = (
+/**
+ * @internal
+ */
+export const RefundWebhook$inboundSchema = (
   refund: Record<string, unknown>,
 ): Refund => {
   const amount = refund.amount as
     | { total: string; currency: string }
     | undefined;
 
-  // Convert total to positive number (webhook sends negative for refunds)
   const refundAmount = amount?.total
     ? Math.abs(parseFloat(amount.total))
     : 0;
@@ -365,12 +371,15 @@ export const paykitRefundWebhook$InboundSchema = (
     id: refund.id as string,
     amount: refundAmount,
     currency: amount?.currency ?? 'USD',
-    metadata: omitInternalMetadata({}), // No metadata in webhook refund
-    reason: null, // No reason in webhook refund
+    metadata: omitInternalMetadata({}),
+    reason: null,
   };
 };
 
-export const paykitSubscriptionWebhook$InboundSchema = (
+/**
+ * @internal
+ */
+export const SubscriptionWebhook$inboundSchema = (
   agreement: Record<string, unknown>,
 ): Subscription => {
   const state = (agreement.state as string) ?? 'Pending';
@@ -385,14 +394,12 @@ export const paykitSubscriptionWebhook$InboundSchema = (
 
   const status = statusMap[state] ?? 'pending';
 
-  // Extract billing interval from plan.payment_definitions
   const plan = agreement.plan as Record<string, unknown> | undefined;
   const paymentDefinitions =
     (plan?.payment_definitions as
       | Record<string, unknown>[]
       | undefined) ?? [];
 
-  // Find REGULAR payment definition (skip TRIAL)
   const regularDefinition =
     paymentDefinitions.find(
       def => (def.type as string) === 'REGULAR',
@@ -416,12 +423,10 @@ export const paykitSubscriptionWebhook$InboundSchema = (
 
   const billingInterval = billingIntervalMap[frequency] ?? 'month';
 
-  // Get start date (webhook uses start_date)
   const startDate =
     (agreement.start_date as string) ?? new Date().toISOString();
   const periodStart = new Date(startDate);
 
-  // Calculate period end from start + billing interval
   const periodEnd = (() => {
     const end = new Date(periodStart);
     switch (billingInterval) {
@@ -449,9 +454,8 @@ export const paykitSubscriptionWebhook$InboundSchema = (
   const payerInfo = payer?.payer_info as
     | Record<string, unknown>
     | undefined;
-  const email = (payerInfo?.email as string) ?? '';
+  const email = payerInfo?.email as string | undefined;
 
-  // Use agreement ID as item_id if plan ID not available
   const planId = (plan?.id as string) ?? (agreement.id as string);
 
   const amount = regularDefinition?.amount as
@@ -474,7 +478,7 @@ export const paykitSubscriptionWebhook$InboundSchema = (
 
   return {
     id: agreement.id as string,
-    customer: { email },
+    customer: email ? { email } : null,
     status,
     item_id: planId,
     current_period_start: periodStart,

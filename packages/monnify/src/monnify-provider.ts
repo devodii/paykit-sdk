@@ -39,9 +39,9 @@ import {
 import { sha512 } from 'js-sha512';
 import {
   monnifyToPaykitEventMap,
-  paykitCheckout$InboundSchema,
-  paykitPayment$InboundSchema,
-  paykitRefund$InboundSchema,
+  Checkout$inboundSchema,
+  Payment$inboundSchema,
+  Refund$inboundSchema,
 } from './utils/mapper';
 
 interface MonnifyMetadata extends ProviderMetadataRegistry {}
@@ -260,7 +260,7 @@ export class MonnifyProvider
       'Failed to retrieve checkout details',
     );
 
-    return paykitCheckout$InboundSchema({
+    return Checkout$inboundSchema({
       ...checkoutData,
       checkoutUrl,
       transactionReference,
@@ -272,7 +272,7 @@ export class MonnifyProvider
       id,
       'Checkout not found',
     );
-    return paykitCheckout$InboundSchema(transactionData);
+    return Checkout$inboundSchema(transactionData);
   };
 
   updateCheckout = async (
@@ -372,7 +372,7 @@ export class MonnifyProvider
   retrievePayment = async (id: string): Promise<Payment | null> => {
     try {
       const transactionData = await this.queryTransaction(id);
-      return paykitPayment$InboundSchema(transactionData);
+      return Payment$inboundSchema(transactionData);
     } catch {
       return null;
     }
@@ -445,7 +445,7 @@ export class MonnifyProvider
 
     const responseBody = this.ensureResponse(response, 'createRefund');
 
-    return paykitRefund$InboundSchema({
+    return Refund$inboundSchema({
       ...responseBody,
       metadata: data.metadata ?? null,
     });

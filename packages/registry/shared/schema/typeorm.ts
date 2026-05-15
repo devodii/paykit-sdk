@@ -25,6 +25,7 @@ import {
     PAST_DUE = 'past_due',
     CANCELED = 'canceled',
     EXPIRED = 'expired',
+    TRIALING = 'trialing',
     PENDING = 'pending',
   }
   

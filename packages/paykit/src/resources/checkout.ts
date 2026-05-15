@@ -41,7 +41,7 @@ export interface Checkout {
   /**
    * The payee of the checkout.
    */
-  customer: Payee;
+  customer: Payee | null;
 
   /**
    * The payment URL of the checkout.
@@ -82,7 +82,7 @@ export interface Checkout {
 export const checkoutSchema = schema<Checkout>()(
   z.object({
     id: z.string(),
-    customer: payeeSchema,
+    customer: payeeSchema.nullable(),
     payment_url: z.string(),
     metadata: metadataSchema.nullable(),
     session_type: billingModeSchema,
@@ -97,7 +97,8 @@ export const checkoutSchema = schema<Checkout>()(
 
 interface CreateCheckoutBaseSchema<
   TProviderMetadata = Record<string, unknown>,
-> extends Pick<Checkout, 'customer' | 'metadata'> {
+> extends Pick<Checkout, 'metadata'> {
+  customer: Payee;
   /**
    * The item ID of the checkout.
    */

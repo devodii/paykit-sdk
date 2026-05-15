@@ -30,6 +30,7 @@ import {
   schema,
   AbstractPayKitProvider,
   isIdCustomer,
+  isEmailCustomer,
   ProviderMetadataRegistry,
   WebhookHandlerConfig,
 } from '@paykit-sdk/core';
@@ -46,8 +47,8 @@ import {
   ComgateWebhookStatusSuccessResponse,
 } from './schema';
 import {
-  paykitInvoice$InboundSchema,
-  paykitPayment$InboundSchema,
+  Invoice$inboundSchema,
+  Payment$inboundSchema,
 } from './utils/mapper';
 
 interface ComgateMetadata extends ProviderMetadataRegistry {}
@@ -173,11 +174,11 @@ export class ComgateProvider
 
     if (error) throw new Error(error.message.split('\n').join(' '));
 
-    if (isIdCustomer(data.customer)) {
+    if (!isEmailCustomer(data.customer)) {
       throw new InvalidTypeError(
         'customer',
-        'object (customer) with email',
-        'string (customer ID)',
+        'object with email',
+        data.customer === null ? 'null' : 'object with id',
         {
           provider: this.providerName,
           method: 'createCheckout',
@@ -310,17 +311,19 @@ export class ComgateProvider
 
     const { customer } = data;
 
-    if (typeof customer === 'object') {
+    if (!isIdCustomer(customer)) {
       throw new InvalidTypeError(
         'customer',
-        'string (customer ID)',
-        'object',
+        'object with id',
+        customer === null ? 'null' : 'object with email',
         {
           provider: this.providerName,
           method: 'createPayment',
         },
       );
     }
+
+    const payerId = String(customer.id);
 
     const { email, paymentLabel = 'Order from Eshop' } =
       validateRequiredKeys(
@@ -340,7 +343,7 @@ export class ComgateProvider
       code: '0',
       test: this.opts.isSandbox ? 'true' : 'false',
       refId: JSON.stringify(data.metadata ?? {}),
-      payerId: customer,
+      payerId,
       price: String(data.amount),
       email,
       curr: String(data.currency),
@@ -368,7 +371,7 @@ export class ComgateProvider
           String(value),
         ]),
       ),
-      customer: customer,
+      customer: isIdCustomer(customer) ? customer : null,
       item_id: data.item_id ?? null,
       requires_action: false,
       payment_url: response.value!.redirect ?? null,
@@ -461,7 +464,7 @@ export class ComgateProvider
       currency: 'CZK',
       status: 'succeeded',
       metadata: {},
-      customer: '',
+      customer: null,
       item_id: null,
       requires_action: false,
       payment_url: response.value!.redirect ?? null,
@@ -704,7 +707,7 @@ export class ComgateProvider
       >
     > = {
       pending: data => {
-        const payment = paykitPayment$InboundSchema(data, 'pending');
+        const payment = Payment$inboundSchema(data, 'pending');
 
         return [
           paykitEvent$InboundSchema<Payment>({
@@ -716,7 +719,7 @@ export class ComgateProvider
         ];
       },
       requires_capture: data => {
-        const payment = paykitPayment$InboundSchema(
+        const payment = Payment$inboundSchema(
           data,
           'requires_capture',
         );
@@ -732,7 +735,7 @@ export class ComgateProvider
       },
 
       canceled: data => {
-        const payment = paykitPayment$InboundSchema(data, 'canceled');
+        const payment = Payment$inboundSchema(data, 'canceled');
 
         return [
           paykitEvent$InboundSchema<Payment>({
@@ -745,8 +748,8 @@ export class ComgateProvider
       },
 
       succeeded: data => {
-        const invoice = paykitInvoice$InboundSchema(data);
-        const payment = paykitPayment$InboundSchema(
+        const invoice = Invoice$inboundSchema(data);
+        const payment = Payment$inboundSchema(
           data,
           'succeeded',
         );

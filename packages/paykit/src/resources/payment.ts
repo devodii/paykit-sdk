@@ -46,7 +46,7 @@ export interface Payment {
   /**
    * The payee of the payment.
    */
-  customer: Payee;
+  customer: Payee | null;
 
   /**
    * The status of the payment.
@@ -80,7 +80,7 @@ export const paymentSchema = schema<Payment>()(
     id: z.string(),
     amount: z.number().min(0),
     currency: z.string(),
-    customer: payeeSchema,
+    customer: payeeSchema.nullable(),
     status: paymentStatusSchema,
     metadata: metadataSchema,
     item_id: z.string().nullable(),

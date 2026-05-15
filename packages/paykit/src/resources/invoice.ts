@@ -17,7 +17,7 @@ export interface Invoice {
   /**
    * The payee linked to the invoice.
    */
-  customer: Payee;
+  customer: Payee | null;
 
   /**
    * The subscription ID, if recurring (null for one-time).
@@ -68,7 +68,7 @@ export interface Invoice {
 export const invoiceSchema = schema<Invoice>()(
   z.object({
     id: z.string(),
-    customer: payeeSchema,
+    customer: payeeSchema.nullable(),
     subscription_id: z.string().nullable(),
     billing_mode: billingModeSchema,
     amount_paid: z.number(),

@@ -21,7 +21,10 @@ import {
   PaystackTransaction,
 } from '../schema';
 
-export const paykitCustomer$InboundSchema = (
+/**
+ * @internal
+ */
+export const Customer$inboundSchema = (
   data: PaystackCustomer,
 ): Customer => {
   const { fullName } = parseCustomerName({
@@ -49,7 +52,10 @@ const paystackStatusMap: Record<string, Payment['status']> = {
   abandoned: 'canceled',
 };
 
-export const paykitPayment$InboundSchema = (
+/**
+ * @internal
+ */
+export const Payment$inboundSchema = (
   data: PaystackTransaction,
   overridePaymentUrl?: string | null,
 ): Payment => {
@@ -79,7 +85,7 @@ export const paykitPayment$InboundSchema = (
     id: data.reference,
     amount: data.amount,
     currency: data.currency,
-    customer: data.customer?.email ?? '',
+    customer: data.customer?.email ? { email: data.customer.email } : null,
     status,
     metadata,
     item_id: itemId,
@@ -88,7 +94,10 @@ export const paykitPayment$InboundSchema = (
   };
 };
 
-export const paykitCheckout$InboundSchema = (
+/**
+ * @internal
+ */
+export const Checkout$inboundSchema = (
   init: PaystackInitializeResponse,
   transaction: Partial<PaystackTransaction> & {
     currency?: string;
@@ -135,7 +144,9 @@ export const paykitCheckout$InboundSchema = (
 
   return {
     id: init.reference,
-    customer: { email: transaction.customer?.email ?? '' },
+    customer: transaction.customer?.email
+      ? { email: transaction.customer.email }
+      : null,
     payment_url: init.authorization_url,
     metadata:
       Object.keys(metadata).length > 0
@@ -177,7 +188,10 @@ const paystackSubscriptionStatusMap: Record<
   completed: 'expired',
 };
 
-export const paykitSubscription$InboundSchema = (
+/**
+ * @internal
+ */
+export const Subscription$inboundSchema = (
   data: PaystackSubscription,
 ): Subscription => {
   const nextPaymentDate = data.next_payment_date
@@ -186,7 +200,7 @@ export const paykitSubscription$InboundSchema = (
 
   return {
     id: data.subscription_code,
-    customer: data.customer?.email ?? '',
+    customer: data.customer?.email ? { email: data.customer.email } : null,
     amount: data.amount,
     currency: data.currency || data.plan?.currency || 'NGN',
     status: paystackSubscriptionStatusMap[data.status] ?? 'active',
@@ -202,7 +216,10 @@ export const paykitSubscription$InboundSchema = (
   };
 };
 
-export const paykitRefund$InboundSchema = (
+/**
+ * @internal
+ */
+export const Refund$inboundSchema = (
   data: PaystackRefund,
   fallbackCurrency: string,
 ): Refund => ({
@@ -213,7 +230,10 @@ export const paykitRefund$InboundSchema = (
   metadata: null,
 });
 
-export const paykitInvoice$InboundSchema = (
+/**
+ * @internal
+ */
+export const Invoice$inboundSchema = (
   data: PaystackTransaction,
 ): Invoice => {
   const rawMetadata =
@@ -226,7 +246,7 @@ export const paykitInvoice$InboundSchema = (
 
   return {
     id: String(data.id),
-    customer: data.customer?.email ?? '',
+    customer: data.customer?.email ? { email: data.customer.email } : null,
     subscription_id: null,
     billing_mode: 'one_time',
     amount_paid: data.amount,

@@ -175,6 +175,7 @@ export const initializeSequelize = (sequelize: Sequelize) => {
           'past_due',
           'canceled',
           'expired',
+          'trialing',
           'pending',
         ),
         allowNull: false,

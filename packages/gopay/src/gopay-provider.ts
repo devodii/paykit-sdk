@@ -37,6 +37,7 @@ import {
   LooseAutoComplete,
   OAuth2TokenManager,
   isEmailCustomer,
+  isIdCustomer,
   ProviderMetadataRegistry,
   WebhookHandlerConfig,
 } from '@paykit-sdk/core';
@@ -50,11 +51,11 @@ import {
 } from './schema';
 import {
   decodeHtmlEntities,
-  paykitCheckout$InboundSchema,
-  paykitInvoice$InboundSchema,
-  paykitPayment$InboundSchema,
-  paykitRefund$InboundSchema,
-  paykitSubscription$InboundSchema,
+  Checkout$inboundSchema,
+  Invoice$inboundSchema,
+  Payment$inboundSchema,
+  Refund$inboundSchema,
+  Subscription$inboundSchema,
 } from './utils/mapper';
 
 interface GoPayMetadata extends ProviderMetadataRegistry {
@@ -260,7 +261,7 @@ export class GoPayProvider
       );
     }
 
-    return paykitCheckout$InboundSchema(response.value);
+    return Checkout$inboundSchema(response.value);
   };
 
   retrieveCheckout = async (id: string): Promise<Checkout | null> => {
@@ -284,7 +285,7 @@ export class GoPayProvider
       );
     }
 
-    return paykitCheckout$InboundSchema(response.value);
+    return Checkout$inboundSchema(response.value);
   };
 
   updateCheckout = async (
@@ -353,14 +354,11 @@ export class GoPayProvider
       );
 
     // Customer must be an object with email
-    if (
-      typeof data.customer === 'string' ||
-      (typeof data.customer === 'object' && !data.customer.email)
-    ) {
+    if (!isEmailCustomer(data.customer)) {
       throw new InvalidTypeError(
         'customer',
-        'object (customer) with email',
-        'string',
+        'object with email',
+        isIdCustomer(data.customer) ? 'object with id' : typeof data.customer,
         {
           provider: this.providerName,
           method: 'createSubscription',
@@ -545,7 +543,7 @@ export class GoPayProvider
       );
     }
 
-    return paykitSubscription$InboundSchema(response.value);
+    return Subscription$inboundSchema(response.value);
   };
 
   updateSubscription = async (
@@ -626,7 +624,7 @@ export class GoPayProvider
       );
     }
 
-    return paykitSubscription$InboundSchema(response.value);
+    return Subscription$inboundSchema(response.value);
   };
 
   createPayment = async (
@@ -641,14 +639,11 @@ export class GoPayProvider
         'createPayment',
       );
 
-    if (
-      typeof data.customer == 'string' ||
-      (typeof data.customer === 'object' && !data.customer?.email)
-    ) {
+    if (!isEmailCustomer(data.customer)) {
       throw new InvalidTypeError(
         'customer',
-        'object (customer) with email',
-        'string',
+        'object with email',
+        isIdCustomer(data.customer) ? 'object with id' : typeof data.customer,
         {
           provider: this.providerName,
           method: 'createPayment',
@@ -726,7 +721,7 @@ export class GoPayProvider
       );
     }
 
-    return paykitPayment$InboundSchema(response.value);
+    return Payment$inboundSchema(response.value);
   };
 
   retrievePayment = async (id: string): Promise<Payment | null> => {
@@ -750,7 +745,7 @@ export class GoPayProvider
       );
     }
 
-    return paykitPayment$InboundSchema(response.value);
+    return Payment$inboundSchema(response.value);
   };
 
   deletePayment = async (id: string): Promise<null> => {
@@ -814,7 +809,7 @@ export class GoPayProvider
       headers: await this.tokenManager.getAuthHeaders(),
     });
 
-    return paykitPayment$InboundSchema(payment.value);
+    return Payment$inboundSchema(payment.value);
   };
 
   cancelPayment = async (id: string): Promise<Payment> => {
@@ -996,7 +991,7 @@ export class GoPayProvider
           data.state === 'PARTIALLY_REFUNDED';
 
         if (isRefundEvent) {
-          const refund = paykitRefund$InboundSchema(data);
+          const refund = Refund$inboundSchema(data);
 
           return [
             paykitEvent$InboundSchema<Refund>({
@@ -1012,7 +1007,7 @@ export class GoPayProvider
       },
 
       pending: data => {
-        const payment = paykitPayment$InboundSchema(data);
+        const payment = Payment$inboundSchema(data);
 
         return [
           paykitEvent$InboundSchema<Payment>({
@@ -1024,7 +1019,7 @@ export class GoPayProvider
         ];
       },
       processing: data => {
-        const payment = paykitPayment$InboundSchema(data);
+        const payment = Payment$inboundSchema(data);
 
         return [
           paykitEvent$InboundSchema<Payment>({
@@ -1036,7 +1031,7 @@ export class GoPayProvider
         ];
       },
       requires_capture: data => {
-        const payment = paykitPayment$InboundSchema(data);
+        const payment = Payment$inboundSchema(data);
 
         return [
           paykitEvent$InboundSchema<Payment>({
@@ -1048,14 +1043,14 @@ export class GoPayProvider
         ];
       },
       canceled: data => {
-        const payment = paykitPayment$InboundSchema(data);
+        const payment = Payment$inboundSchema(data);
 
         const isCancellingSubscription =
           parentId &&
           (data as GoPaySubscriptionResponse).recurrence
             ?.recurrence_state == 'STOPPED';
 
-        const subscription = paykitSubscription$InboundSchema(
+        const subscription = Subscription$inboundSchema(
           data as GoPaySubscriptionResponse,
         );
 
@@ -1083,7 +1078,7 @@ export class GoPayProvider
         ];
       },
       failed: data => {
-        const payment = paykitPayment$InboundSchema(data);
+        const payment = Payment$inboundSchema(data);
 
         return [
           paykitEvent$InboundSchema<Payment>({
@@ -1095,9 +1090,9 @@ export class GoPayProvider
         ];
       },
       succeeded: data => {
-        const payment = paykitPayment$InboundSchema(data);
-        const invoice = paykitInvoice$InboundSchema(data, !!parentId);
-        const subscription = paykitSubscription$InboundSchema(
+        const payment = Payment$inboundSchema(data);
+        const invoice = Invoice$inboundSchema(data, !!parentId);
+        const subscription = Subscription$inboundSchema(
           data as GoPaySubscriptionResponse,
         );
 
@@ -1131,7 +1126,7 @@ export class GoPayProvider
         ];
       },
       requires_action: data => {
-        const payment = paykitPayment$InboundSchema(data);
+        const payment = Payment$inboundSchema(data);
 
         return [
           paykitEvent$InboundSchema<Payment>({

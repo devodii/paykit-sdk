@@ -52,12 +52,12 @@ import {
   PaystackWebhookEvent,
 } from './schema';
 import {
-  paykitCheckout$InboundSchema,
-  paykitCustomer$InboundSchema,
-  paykitInvoice$InboundSchema,
-  paykitPayment$InboundSchema,
-  paykitRefund$InboundSchema,
-  paykitSubscription$InboundSchema,
+  Checkout$inboundSchema,
+  Customer$inboundSchema,
+  Invoice$inboundSchema,
+  Payment$inboundSchema,
+  Refund$inboundSchema,
+  Subscription$inboundSchema,
 } from './utils/mapper';
 
 interface PaystackMetadata extends ProviderMetadataRegistry {
@@ -206,7 +206,7 @@ export class PaystackProvider
       PaystackResponse<PaystackCustomer>
     >(`/customer/${encodeURIComponent(data.customer.email)}`);
 
-    return paykitCheckout$InboundSchema(initData, {
+    return Checkout$inboundSchema(initData, {
       amount: body.amount as number,
       currency: body.currency as string,
       customer: await this.unwrap(rawCustomer, 'createCheckout'),
@@ -223,7 +223,7 @@ export class PaystackProvider
 
     const txn = response.value.data;
 
-    return paykitCheckout$InboundSchema(
+    return Checkout$inboundSchema(
       {
         authorization_url: '',
         access_code: '',
@@ -282,7 +282,7 @@ export class PaystackProvider
 
     const customer = await this.unwrap(response, 'createCustomer');
 
-    return paykitCustomer$InboundSchema(customer);
+    return Customer$inboundSchema(customer);
   };
 
   retrieveCustomer = async (id: string): Promise<Customer | null> => {
@@ -292,7 +292,7 @@ export class PaystackProvider
 
     if (!response.ok || !response.value?.data) return null;
 
-    return paykitCustomer$InboundSchema(response.value.data);
+    return Customer$inboundSchema(response.value.data);
   };
 
   updateCustomer = async (
@@ -326,7 +326,7 @@ export class PaystackProvider
 
     const customer = await this.unwrap(response, 'updateCustomer');
 
-    return paykitCustomer$InboundSchema(customer);
+    return Customer$inboundSchema(customer);
   };
 
   deleteCustomer = async (_id: string): Promise<null> => {
@@ -338,17 +338,16 @@ export class PaystackProvider
   createSubscription = async (
     params: CreateSubscriptionSchema<PaystackMetadata['subscription']>,
   ): Promise<Subscription> => {
-    const customerValue =
-      typeof params.customer === 'string'
-        ? params.customer
-        : 'email' in params.customer
-          ? params.customer.email
-          : null;
+    const customerValue = isEmailCustomer(params.customer)
+      ? params.customer.email
+      : isIdCustomer(params.customer)
+        ? String(params.customer.id)
+        : null;
 
     if (!customerValue) {
       throw new InvalidTypeError(
         'customer',
-        'string (customer code) or object with email',
+        'object with email or id',
         typeof params.customer,
         { provider: this.providerName, method: 'createSubscription' },
       );
@@ -368,7 +367,7 @@ export class PaystackProvider
 
     const subscription = await this.unwrap(response, 'createSubscription');
 
-    return paykitSubscription$InboundSchema(subscription);
+    return Subscription$inboundSchema(subscription);
   };
 
   retrieveSubscription = async (id: string): Promise<Subscription | null> => {
@@ -378,7 +377,7 @@ export class PaystackProvider
 
     if (!response.ok || !response.value?.data) return null;
 
-    return paykitSubscription$InboundSchema(response.value.data);
+    return Subscription$inboundSchema(response.value.data);
   };
 
   updateSubscription = async (
@@ -442,12 +441,14 @@ export class PaystackProvider
     if (isEmailCustomer(data.customer)) {
       email = data.customer.email;
     } else if (isIdCustomer(data.customer)) {
-      const customer = await this.retrieveCustomer(data.customer);
+      const customer = await this.retrieveCustomer(
+        String(data.customer.id),
+      );
 
       if (!customer) {
         throw new ResourceNotFoundError(
           'customer',
-          data.customer,
+          String(data.customer.id),
           this.providerName,
         );
       }
@@ -456,7 +457,7 @@ export class PaystackProvider
     } else {
       throw new InvalidTypeError(
         'customer',
-        'string (customer code) or object with email',
+        'object with email or id',
         typeof data.customer,
         { provider: this.providerName, method: 'createPayment' },
       );
@@ -500,7 +501,7 @@ export class PaystackProvider
       id: initData.reference,
       amount: data.amount,
       currency: data.currency,
-      customer: isEmailCustomer(data.customer) ? { email } : email,
+      customer: { email },
       status: 'pending',
       metadata: stringifyMetadataValues(data.metadata ?? {}) as Record<
         string,
@@ -519,7 +520,7 @@ export class PaystackProvider
 
     if (!response.ok || !response.value?.data) return null;
 
-    return paykitPayment$InboundSchema(response.value.data);
+    return Payment$inboundSchema(response.value.data);
   };
 
   updatePayment = async (
@@ -581,7 +582,7 @@ export class PaystackProvider
 
     const refund = await this.unwrap(response, 'createRefund');
 
-    return paykitRefund$InboundSchema(refund, 'NGN');
+    return Refund$inboundSchema(refund, 'NGN');
   };
 
   handleWebhook = async (
@@ -644,8 +645,8 @@ export class PaystackProvider
     switch (event.event) {
       case 'charge.success': {
         const txn = event.data as unknown as PaystackTransaction;
-        const payment = paykitPayment$InboundSchema(txn);
-        const invoice = paykitInvoice$InboundSchema(txn);
+        const payment = Payment$inboundSchema(txn);
+        const invoice = Invoice$inboundSchema(txn);
 
         return [
           paykitEvent$InboundSchema({
@@ -665,7 +666,7 @@ export class PaystackProvider
 
       case 'charge.failed': {
         const txn = event.data as unknown as PaystackTransaction;
-        const payment = paykitPayment$InboundSchema(txn);
+        const payment = Payment$inboundSchema(txn);
 
         return [
           paykitEvent$InboundSchema({
@@ -679,7 +680,7 @@ export class PaystackProvider
 
       case 'customer.create': {
         const customerData = event.data as unknown as PaystackCustomer;
-        const customer = paykitCustomer$InboundSchema(customerData);
+        const customer = Customer$inboundSchema(customerData);
 
         return [
           paykitEvent$InboundSchema({
@@ -694,7 +695,7 @@ export class PaystackProvider
       case 'customeridentification.success':
       case 'customeridentification.failed': {
         const customerData = event.data as unknown as PaystackCustomer;
-        const customer = paykitCustomer$InboundSchema(customerData);
+        const customer = Customer$inboundSchema(customerData);
 
         return [
           paykitEvent$InboundSchema({
@@ -708,7 +709,7 @@ export class PaystackProvider
 
       case 'subscription.create': {
         const subData = event.data as unknown as PaystackSubscription;
-        const subscription = paykitSubscription$InboundSchema(subData);
+        const subscription = Subscription$inboundSchema(subData);
 
         return [
           paykitEvent$InboundSchema({
@@ -739,7 +740,7 @@ export class PaystackProvider
         };
         if (!invoiceData.transaction) return null;
 
-        const payment = paykitPayment$InboundSchema(invoiceData.transaction);
+        const payment = Payment$inboundSchema(invoiceData.transaction);
 
         return [
           paykitEvent$InboundSchema({
@@ -757,7 +758,7 @@ export class PaystackProvider
         };
         if (!invoiceData.transaction) return null;
 
-        const payment = paykitPayment$InboundSchema(invoiceData.transaction);
+        const payment = Payment$inboundSchema(invoiceData.transaction);
 
         return [
           paykitEvent$InboundSchema({
@@ -773,7 +774,7 @@ export class PaystackProvider
       case 'refund.processed':
       case 'refund.failed': {
         const refundData = event.data as unknown as PaystackRefund;
-        const refund = paykitRefund$InboundSchema(refundData, 'NGN');
+        const refund = Refund$inboundSchema(refundData, 'NGN');
 
         return [
           paykitEvent$InboundSchema({

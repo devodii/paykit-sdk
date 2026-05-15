@@ -1,4 +1,4 @@
-export type PaykitProviderOptions<T extends object = {}> = {
+export interface PaykitProviderOptions {
   /**
    * Whether to enable debug mode
    */
@@ -8,7 +8,7 @@ export type PaykitProviderOptions<T extends object = {}> = {
    * Whether to use the sandbox environment
    */
   isSandbox: boolean;
-} & T;
+}
 
 export type OverrideProps<T, V> = V & Omit<T, keyof V>;
 

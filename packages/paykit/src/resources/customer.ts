@@ -59,14 +59,17 @@ export const customerSchema = schema<Customer>()(
   }),
 );
 
-type CustomerIdPayee = Customer['id'];
+type EmailPayee = { email: string };
 
-type EmailPayee = Pick<Customer, 'email'>;
+type IdPayee = { id: string | number };
 
-export type Payee = CustomerIdPayee | EmailPayee;
+export type Payee = EmailPayee | IdPayee;
 
 export const payeeSchema = schema<Payee>()(
-  z.union([z.string(), customerSchema.pick({ email: true })]),
+  z.union([
+    z.object({ email: z.string().email() }),
+    z.object({ id: z.union([z.string(), z.number()]) }),
+  ]),
 );
 
 export interface CreateCustomerParams<
@@ -141,8 +144,12 @@ export const isEmailCustomer = (
 
 export const isIdCustomer = (
   customer: unknown,
-): customer is CustomerIdPayee => {
-  return typeof customer === 'string' && customer.length > 0;
+): customer is IdPayee => {
+  return (
+    typeof customer === 'object' &&
+    customer !== null &&
+    'id' in customer
+  );
 };
 
 export const parseCustomerName = (params: {

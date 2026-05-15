@@ -31,6 +31,8 @@ import {
   Schema,
   ProviderMetadataRegistry,
   WebhookHandlerConfig,
+  isEmailCustomer,
+  isIdCustomer,
 } from '@paykit-sdk/core';
 import {
   CheckoutPaymentIntent,
@@ -46,13 +48,13 @@ import { WebhookController } from './controllers/webhook';
 import { VerifyWebhookStatus } from './schema';
 import { PayPalRawEvents, PayPalWebhookBase } from './types';
 import {
-  paykitCheckout$InboundSchema,
-  paykitPayment$InboundSchema,
-  paykitRefund$InboundSchema,
-  paykitPaymentWebhook$InboundSchema,
-  paykitPaymentCaptureWebhook$InboundSchema,
-  paykitRefundWebhook$InboundSchema,
-  paykitSubscriptionWebhook$InboundSchema,
+  Checkout$inboundSchema,
+  Payment$inboundSchema,
+  Refund$inboundSchema,
+  PaymentWebhook$inboundSchema,
+  PaymentCaptureWebhook$inboundSchema,
+  RefundWebhook$inboundSchema,
+  SubscriptionWebhook$inboundSchema,
 } from './utils/mapper';
 
 interface PayPalMetadata extends ProviderMetadataRegistry {}
@@ -246,7 +248,7 @@ export class PayPalProvider
         body: orderOptionsBody,
       });
 
-      return paykitCheckout$InboundSchema(order.result);
+      return Checkout$inboundSchema(order.result);
     } catch (error) {
       throw new OperationFailedError(
         'createCheckout',
@@ -267,7 +269,7 @@ export class PayPalProvider
 
       if (!order.result) throw new ResourceNotFoundError('Order', id);
 
-      return paykitCheckout$InboundSchema(order.result);
+      return Checkout$inboundSchema(order.result);
     } catch (error) {
       throw new OperationFailedError(
         'retrieveCheckout',
@@ -442,13 +444,12 @@ export class PayPalProvider
     >[0]['body'] = {
       intent: CheckoutPaymentIntent.Capture,
       payer: {
-        ...(typeof params.customer === 'string' && {
-          payerId: params.customer,
+        ...(isIdCustomer(params.customer) && {
+          payerId: String(params.customer.id),
         }),
-        ...(typeof params.customer === 'object' &&
-          'email' in params.customer && {
-            emailAddress: params.customer.email,
-          }),
+        ...(isEmailCustomer(params.customer) && {
+          emailAddress: params.customer.email,
+        }),
       },
       purchaseUnits: [
         {
@@ -486,7 +487,7 @@ export class PayPalProvider
         body: orderOptionsBody,
       });
 
-      return paykitPayment$InboundSchema(order.result);
+      return Payment$inboundSchema(order.result);
     } catch (error) {
       throw new OperationFailedError(
         'createPayment',
@@ -520,7 +521,7 @@ export class PayPalProvider
 
       if (!order.result) throw new ResourceNotFoundError('Order', id);
 
-      return paykitPayment$InboundSchema(order.result);
+      return Payment$inboundSchema(order.result);
     } catch (error) {
       throw new OperationFailedError(
         'retrievePayment',
@@ -555,7 +556,7 @@ export class PayPalProvider
       if (!captured.result)
         throw new ResourceNotFoundError('Order', id);
 
-      return paykitPayment$InboundSchema(captured.result);
+      return Payment$inboundSchema(captured.result);
     } catch (error) {
       throw new OperationFailedError(
         'capturePayment',
@@ -625,7 +626,7 @@ export class PayPalProvider
       if (!refund.result)
         throw new ResourceNotFoundError('Refund', params.payment_id);
 
-      return paykitRefund$InboundSchema(refund.result);
+      return Refund$inboundSchema(refund.result);
     } catch (error) {
       throw new OperationFailedError(
         'createRefund',
@@ -698,7 +699,7 @@ export class PayPalProvider
               type: 'payment.created',
               created: timestamp,
               id: event.id,
-              data: paykitPaymentWebhook$InboundSchema(resource),
+              data: PaymentWebhook$inboundSchema(resource),
             }),
           ];
 
@@ -711,8 +712,8 @@ export class PayPalProvider
               id: event.id,
               data:
                 eventType === 'CHECKOUT.ORDER.COMPLETED'
-                  ? paykitPaymentWebhook$InboundSchema(resource)
-                  : paykitPaymentCaptureWebhook$InboundSchema(
+                  ? PaymentWebhook$inboundSchema(resource)
+                  : PaymentCaptureWebhook$inboundSchema(
                       resource,
                     ),
             }),
@@ -724,7 +725,7 @@ export class PayPalProvider
               type: 'refund.created',
               created: timestamp,
               id: event.id,
-              data: paykitRefundWebhook$InboundSchema(resource),
+              data: RefundWebhook$inboundSchema(resource),
             }),
           ];
 
@@ -734,7 +735,7 @@ export class PayPalProvider
               type: 'subscription.created',
               created: timestamp,
               id: event.id,
-              data: paykitSubscriptionWebhook$InboundSchema(resource),
+              data: SubscriptionWebhook$inboundSchema(resource),
             }),
           ];
 
@@ -746,7 +747,7 @@ export class PayPalProvider
               type: 'subscription.updated',
               created: timestamp,
               id: event.id,
-              data: paykitSubscriptionWebhook$InboundSchema(resource),
+              data: SubscriptionWebhook$inboundSchema(resource),
             }),
           ];
 
@@ -757,7 +758,7 @@ export class PayPalProvider
               type: 'subscription.canceled',
               created: timestamp,
               id: event.id,
-              data: paykitSubscriptionWebhook$InboundSchema(resource),
+              data: SubscriptionWebhook$inboundSchema(resource),
             }),
           ];
 

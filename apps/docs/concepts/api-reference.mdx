@@ -53,8 +53,8 @@ interface Checkout {
   /** The unique identifier of the checkout session. */
   id: string;
 
-  /** The customer — either a customer ID string or an object with an email. */
-  customer: Payee;
+  /** The customer linked to this resource. Null if not returned by the provider. */
+  customer: Payee | null;
 
   /** The URL to redirect the customer to for payment. */
   payment_url: string;
@@ -103,8 +103,8 @@ interface Subscription {
   /** The unique identifier of the subscription. */
   id: string;
 
-  /** The customer — either a customer ID string or an object with an email. */
-  customer: Payee;
+  /** The customer linked to this resource. Null if not returned by the provider. */
+  customer: Payee | null;
 
   /** Recurring amount in the smallest currency unit. */
   amount: number;
@@ -113,7 +113,7 @@ interface Subscription {
   currency: string;
 
   /** Current lifecycle status of the subscription. */
-  status: 'active' | 'past_due' | 'canceled' | 'expired' | 'pending';
+  status: 'active' | 'past_due' | 'canceled' | 'expired' | 'trialing' | 'pending';
 
   /** Start of the current billing period. */
   current_period_start: Date;
@@ -164,8 +164,8 @@ interface Payment {
   /** ISO 4217 currency code. */
   currency: string;
 
-  /** The customer — either a customer ID string or an object with an email. */
-  customer: Payee;
+  /** The customer linked to this resource. Null if not returned by the provider. */
+  customer: Payee | null;
 
   /**
    * Current status of the payment.
@@ -239,8 +239,8 @@ interface Invoice {
   /** The unique identifier of the invoice. */
   id: string;
 
-  /** The customer — either a customer ID string or an object with an email. */
-  customer: Payee;
+  /** The customer linked to this resource. Null if not returned by the provider. */
+  customer: Payee | null;
 
   /** The subscription this invoice belongs to. Null for one-time payments. */
   subscription_id: string | null;
@@ -273,12 +273,12 @@ interface Invoice {
 
 ## Payee
 
-A `Payee` is either a customer ID string or an object with an email:
+A `Payee` is either an object with an email or an object with an ID. On resource responses, `customer` is `Payee | null` — null means the provider did not return customer info for that event.
 
 ```typescript
-type Payee = string | { email: string };
+type Payee = { email: string } | { id: string | number };
 
-// Both are valid
-await paykit.checkouts.create({ customer: 'cus_123', ... });
+// Both are valid when creating resources
 await paykit.checkouts.create({ customer: { email: 'user@example.com' }, ... });
+await paykit.checkouts.create({ customer: { id: 'cus_123' }, ... });
 ```

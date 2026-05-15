@@ -5,7 +5,10 @@ import {
 } from '@paykit-sdk/core';
 import { ComgateWebhookStatusSuccessResponse } from '../schema';
 
-export const paykitPayment$InboundSchema = (
+/**
+ * @internal
+ */
+export const Payment$inboundSchema = (
   webhookResponse: ComgateWebhookStatusSuccessResponse,
   status: Payment['status'],
 ): Payment => {
@@ -13,9 +16,9 @@ export const paykitPayment$InboundSchema = (
     id: webhookResponse.transId,
     amount: webhookResponse.price,
     currency: webhookResponse.curr,
-    customer: webhookResponse.payerId ?? {
-      email: webhookResponse.email,
-    },
+    customer: webhookResponse.payerId
+      ? { id: webhookResponse.payerId }
+      : { email: webhookResponse.email },
     status,
     metadata: omitInternalMetadata(
       JSON.parse(webhookResponse.refId) as Record<string, unknown>,
@@ -26,7 +29,10 @@ export const paykitPayment$InboundSchema = (
   };
 };
 
-export const paykitInvoice$InboundSchema = (
+/**
+ * @internal
+ */
+export const Invoice$inboundSchema = (
   webhookResponse: ComgateWebhookStatusSuccessResponse,
 ): Invoice => {
   const status = ((): Invoice['status'] => {
@@ -40,12 +46,12 @@ export const paykitInvoice$InboundSchema = (
     paid_at: new Date().toISOString(),
     amount_paid: webhookResponse.price,
     currency: webhookResponse.curr,
-    customer: webhookResponse.payerId ?? {
-      email: webhookResponse.email,
-    },
+    customer: webhookResponse.payerId
+      ? { id: webhookResponse.payerId }
+      : { email: webhookResponse.email },
     custom_fields: null,
     subscription_id: null,
-    billing_mode: 'one_time', // comgate does not support recurring payments
+    billing_mode: 'one_time',
     line_items: webhookResponse.name
       ? [{ id: webhookResponse.name, quantity: 1 }]
       : [],

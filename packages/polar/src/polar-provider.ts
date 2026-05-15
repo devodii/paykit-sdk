@@ -37,7 +37,6 @@ import {
   CapturePaymentSchema,
   capturePaymentSchema,
   schema,
-  OverrideProps,
   AbstractPayKitProvider,
   PAYKIT_METADATA_KEY,
   stringifyMetadataValues,
@@ -45,6 +44,9 @@ import {
   Schema,
   WebhookHandlerConfig,
   ProviderMetadataRegistry,
+  parseCustomerName,
+  isEmailCustomer,
+  isIdCustomer,
 } from '@paykit-sdk/core';
 import { Polar, SDKOptions, ServerList } from '@polar-sh/sdk';
 import { CountryAlpha2Input } from '@polar-sh/sdk/models/components/addressinput.js';
@@ -61,12 +63,12 @@ import { SubscriptionUpdateTrial } from '@polar-sh/sdk/models/components/subscri
 import { Refunds } from '@polar-sh/sdk/sdk/refunds.js';
 import { validateEvent } from '@polar-sh/sdk/webhooks';
 import {
-  paykitCheckout$InboundSchema,
-  paykitCustomer$InboundSchema,
-  paykitInvoice$InboundSchema,
-  paykitPayment$InboundSchema,
-  paykitRefund$InboundSchema,
-  paykitSubscription$InboundSchema,
+  Checkout$inboundSchema,
+  Customer$inboundSchema,
+  Invoice$inboundSchema,
+  Payment$inboundSchema,
+  Refund$inboundSchema,
+  Subscription$inboundSchema,
 } from '../lib/mapper';
 
 interface PolarMetadata extends ProviderMetadataRegistry {}
@@ -78,17 +80,9 @@ type PolarRawEvents = {
 };
 
 export interface PolarOptions
-  extends PaykitProviderOptions<
-    OverrideProps<
-      Pick<
-        SDKOptions,
-        'accessToken' | 'userAgent' | 'retryConfig' | 'timeoutMs'
-      >,
-      {
-        accessToken: string;
-      }
-    >
-  > {
+  extends PaykitProviderOptions,
+    Pick<SDKOptions, 'userAgent' | 'retryConfig' | 'timeoutMs'> {
+  accessToken: string;
   isSandbox: boolean;
 }
 
@@ -122,9 +116,7 @@ export class PolarProvider
 
     const { accessToken, isSandbox, debug = true, ...rest } = config;
 
-    const serverURL = isSandbox
-      ? this.sandboxURL
-      : this.productionURL;
+    const serverURL = isSandbox ? this.sandboxURL : this.productionURL;
 
     this.polar = new Polar({ accessToken, serverURL, ...rest });
     this.refunds = new Refunds({ accessToken, serverURL, ...rest });
@@ -137,9 +129,7 @@ export class PolarProvider
   /**
    * Checkout management
    */
-  createCheckout = async (
-    params: CreateCheckoutSchema,
-  ): Promise<Checkout> => {
+  createCheckout = async (params: CreateCheckoutSchema): Promise<Checkout> => {
     const { error, data } = createCheckoutSchema.safeParse(params);
 
     if (error) {
@@ -161,10 +151,7 @@ export class PolarProvider
       successUrl: data.success_url,
     };
 
-    if (
-      typeof data.customer === 'object' &&
-      'email' in data.customer
-    ) {
+    if (typeof data.customer === 'object' && 'email' in data.customer) {
       checkoutCreateOptions.customerEmail = data.customer.email;
     } else if (typeof data.customer === 'string') {
       checkoutCreateOptions.customerId = data.customer;
@@ -187,11 +174,9 @@ export class PolarProvider
       };
     }
 
-    const response = await this.polar.checkouts.create(
-      checkoutCreateOptions,
-    );
+    const response = await this.polar.checkouts.create(checkoutCreateOptions);
 
-    return paykitCheckout$InboundSchema(response);
+    return Checkout$inboundSchema(response);
   };
 
   updateCheckout = async (
@@ -208,8 +193,7 @@ export class PolarProvider
       );
     }
 
-    const { metadata, item_id, provider_metadata, ...restData } =
-      data;
+    const { metadata, item_id, provider_metadata, ...restData } = data;
 
     const response = await this.polar.checkouts.update({
       id,
@@ -223,7 +207,7 @@ export class PolarProvider
       },
     });
 
-    return paykitCheckout$InboundSchema(response);
+    return Checkout$inboundSchema(response);
   };
 
   retrieveCheckout = async (id: string): Promise<Checkout> => {
@@ -239,7 +223,7 @@ export class PolarProvider
 
     const response = await this.polar.checkouts.get({ id });
 
-    return paykitCheckout$InboundSchema(response);
+    return Checkout$inboundSchema(response);
   };
 
   deleteCheckout = async (id: string): Promise<null> => {
@@ -251,9 +235,7 @@ export class PolarProvider
   /**
    * Customer management
    */
-  createCustomer = async (
-    params: CreateCustomerParams,
-  ): Promise<Customer> => {
+  createCustomer = async (params: CreateCustomerParams): Promise<Customer> => {
     const { error, data } = createCustomerSchema.safeParse(params);
 
     if (error) {
@@ -266,7 +248,7 @@ export class PolarProvider
 
     const { email, metadata } = data;
 
-    const name = data?.name ?? email.split('@')[0];
+    const { fullName: name } = parseCustomerName({ name: data.name, email });
 
     const response = await this.polar.customers.create({
       email,
@@ -277,9 +259,10 @@ export class PolarProvider
           phone: data?.phone ?? '',
         }),
       },
+      ...data.provider_metadata,
     });
 
-    return paykitCustomer$InboundSchema(response);
+    return Customer$inboundSchema(response);
   };
 
   updateCustomer = async (
@@ -308,7 +291,7 @@ export class PolarProvider
       },
     });
 
-    return paykitCustomer$InboundSchema(response);
+    return Customer$inboundSchema(response);
   };
 
   retrieveCustomer = async (id: string): Promise<Customer> => {
@@ -324,7 +307,7 @@ export class PolarProvider
 
     const response = await this.polar.customers.get({ id });
 
-    return paykitCustomer$InboundSchema(response);
+    return Customer$inboundSchema(response);
   };
 
   deleteCustomer = async (id: string): Promise<null> => {
@@ -341,13 +324,9 @@ export class PolarProvider
   createSubscription = async (
     params: CreateSubscriptionSchema,
   ): Promise<Subscription> => {
-    throw new ProviderNotSupportedError(
-      'createSubscription',
-      'Polar',
-      {
-        reason: 'Subscriptions can only be created through checkouts',
-      },
-    );
+    throw new ProviderNotSupportedError('createSubscription', 'Polar', {
+      reason: 'Subscriptions can only be created through checkouts',
+    });
   };
 
   cancelSubscription = async (id: string): Promise<Subscription> => {
@@ -365,12 +344,10 @@ export class PolarProvider
       id,
     });
 
-    return paykitSubscription$InboundSchema(subscription);
+    return Subscription$inboundSchema(subscription);
   };
 
-  retrieveSubscription = async (
-    id: string,
-  ): Promise<Subscription> => {
+  retrieveSubscription = async (id: string): Promise<Subscription> => {
     const { error } = retrieveSubscriptionSchema.safeParse({ id });
 
     if (error) {
@@ -383,7 +360,7 @@ export class PolarProvider
 
     const response = await this.polar.subscriptions.get({ id });
 
-    return paykitSubscription$InboundSchema(response);
+    return Subscription$inboundSchema(response);
   };
 
   updateSubscription = async (
@@ -425,7 +402,7 @@ export class PolarProvider
       >,
     });
 
-    return paykitSubscription$InboundSchema(response);
+    return Subscription$inboundSchema(response);
   };
 
   deleteSubscription = async (id: string): Promise<null> => {
@@ -442,9 +419,7 @@ export class PolarProvider
     return (await this.cancelSubscription(id)) === null ? null : null;
   };
 
-  createPayment = async (
-    params: CreatePaymentSchema,
-  ): Promise<Payment> => {
+  createPayment = async (params: CreatePaymentSchema): Promise<Payment> => {
     const { error, data } = createPaymentSchema.safeParse(params);
 
     if (error) {
@@ -455,9 +430,7 @@ export class PolarProvider
       );
     }
 
-    const paymentMetadata = stringifyMetadataValues(
-      data.metadata ?? {},
-    );
+    const paymentMetadata = stringifyMetadataValues(data.metadata ?? {});
 
     const checkoutCreateOptions: CheckoutCreate = {
       ...(data.provider_metadata && { ...data.provider_metadata }),
@@ -466,9 +439,9 @@ export class PolarProvider
       products: data.item_id ? [data.item_id] : [],
     };
 
-    if (typeof data.customer === 'string') {
-      checkoutCreateOptions.customerId = data.customer;
-    } else if (typeof data.customer === 'object') {
+    if (isIdCustomer(data.customer)) {
+      checkoutCreateOptions.customerId = String(data.customer.id);
+    } else if (isEmailCustomer(data.customer)) {
       checkoutCreateOptions.customerEmail = data.customer.email;
     }
 
@@ -495,7 +468,7 @@ export class PolarProvider
       checkoutCreateOptions,
     );
 
-    return paykitPayment$InboundSchema(checkoutResponse);
+    return Payment$inboundSchema(checkoutResponse);
   };
 
   updatePayment = async (
@@ -514,9 +487,7 @@ export class PolarProvider
 
     const { provider_metadata, ...rest } = data;
 
-    const paymentMetadata = stringifyMetadataValues(
-      rest.metadata ?? {},
-    );
+    const paymentMetadata = stringifyMetadataValues(rest.metadata ?? {});
 
     const checkoutResponse = await this.polar.checkouts.update({
       id,
@@ -529,7 +500,7 @@ export class PolarProvider
       },
     });
 
-    return paykitPayment$InboundSchema(checkoutResponse);
+    return Payment$inboundSchema(checkoutResponse);
   };
 
   capturePayment = async (
@@ -550,34 +521,24 @@ export class PolarProvider
   };
 
   cancelPayment = async (id: string): Promise<Payment> => {
-    throw new ProviderNotSupportedError(
-      'cancelPayment',
-      this.providerName,
-      {
-        reason: 'Polar does not support canceling payments',
-      },
-    );
+    throw new ProviderNotSupportedError('cancelPayment', this.providerName, {
+      reason: 'Polar does not support canceling payments',
+    });
   };
 
   deletePayment = async (id: string): Promise<null> => {
-    throw new ProviderNotSupportedError(
-      'deletePayment',
-      this.providerName,
-      {
-        reason: 'Polar does not support deleting payments',
-      },
-    );
+    throw new ProviderNotSupportedError('deletePayment', this.providerName, {
+      reason: 'Polar does not support deleting payments',
+    });
   };
 
   retrievePayment = async (id: string): Promise<Payment> => {
     const response = await this.polar.checkouts.get({ id });
 
-    return paykitPayment$InboundSchema(response);
+    return Payment$inboundSchema(response);
   };
 
-  createRefund = async (
-    params: CreateRefundSchema,
-  ): Promise<Refund> => {
+  createRefund = async (params: CreateRefundSchema): Promise<Refund> => {
     const { error, data } = createRefundSchema.safeParse(params);
 
     if (error) {
@@ -631,7 +592,7 @@ export class PolarProvider
       );
     }
 
-    return paykitRefund$InboundSchema(refund);
+    return Refund$inboundSchema(refund);
   };
 
   handleWebhook = async (
@@ -644,11 +605,7 @@ export class PolarProvider
     const webhookTimestamp = (headersAsObject['webhook-timestamp'] ||
       '0') as string;
 
-    const { data, type } = validateEvent(
-      body,
-      headersAsObject,
-      webhookSecret,
-    );
+    const { data, type } = validateEvent(body, headersAsObject, webhookSecret);
 
     const results: Array<WebhookEventPayload<PolarRawEvents>> = [];
 
@@ -681,13 +638,13 @@ export class PolarProvider
                 id: polarOrder.id,
                 amount: polarOrder.totalAmount,
                 currency: polarOrder.currency,
-                customer: polarOrder.customerId || {
-                  email: polarOrder.customer.email ?? '',
-                },
+                customer: polarOrder.customerId
+                  ? { id: polarOrder.customerId }
+                  : polarOrder.customer?.email
+                    ? { email: polarOrder.customer.email }
+                    : null,
                 status: 'succeeded',
-                metadata: stringifyMetadataValues(
-                  polarOrder.metadata ?? {},
-                ),
+                metadata: stringifyMetadataValues(polarOrder.metadata ?? {}),
                 item_id: polarOrder.product.id,
                 requires_action: false,
                 payment_url: null,
@@ -697,7 +654,7 @@ export class PolarProvider
               type: 'invoice.generated',
               created: parseInt(webhookTimestamp),
               id: webhookId,
-              data: paykitInvoice$InboundSchema({
+              data: Invoice$inboundSchema({
                 ...polarOrder,
                 billingMode: billingModeSchema.parse(
                   isSubscription ? 'recurring' : 'one_time',
@@ -719,16 +676,13 @@ export class PolarProvider
                 id: polarOrder.id,
                 amount: polarOrder.totalAmount,
                 currency: polarOrder.currency,
-                customer: polarOrder.customerId || {
-                  email: polarOrder.customer.email ?? '',
-                },
-                status:
-                  polarOrder.status === 'paid'
-                    ? 'succeeded'
-                    : 'pending',
-                metadata: stringifyMetadataValues(
-                  polarOrder.metadata ?? {},
-                ),
+                customer: polarOrder.customerId
+                  ? { id: polarOrder.customerId }
+                  : polarOrder.customer?.email
+                    ? { email: polarOrder.customer.email }
+                    : null,
+                status: polarOrder.status === 'paid' ? 'succeeded' : 'pending',
+                metadata: stringifyMetadataValues(polarOrder.metadata ?? {}),
                 item_id: polarOrder.product.id,
                 requires_action: polarOrder.status !== 'paid',
                 payment_url: null,
@@ -747,9 +701,7 @@ export class PolarProvider
                   : 'customer.updated',
               created: parseInt(webhookTimestamp),
               id: webhookId,
-              data: paykitCustomer$InboundSchema(
-                data as PolarCustomer,
-              ),
+              data: Customer$inboundSchema(data as PolarCustomer),
             }),
           ];
 
@@ -773,9 +725,7 @@ export class PolarProvider
                   : 'subscription.updated',
               created: parseInt(webhookTimestamp),
               id: webhookId,
-              data: paykitSubscription$InboundSchema(
-                data as PolarSubscription,
-              ),
+              data: Subscription$inboundSchema(data as PolarSubscription),
             }),
           ];
 
@@ -785,9 +735,7 @@ export class PolarProvider
               type: 'subscription.canceled',
               created: parseInt(webhookTimestamp),
               id: webhookId,
-              data: paykitSubscription$InboundSchema(
-                data as PolarSubscription,
-              ),
+              data: Subscription$inboundSchema(data as PolarSubscription),
             }),
           ];
 
@@ -797,7 +745,7 @@ export class PolarProvider
               type: 'refund.created',
               created: parseInt(webhookTimestamp),
               id: webhookId,
-              data: paykitRefund$InboundSchema(data as PolarRefund),
+              data: Refund$inboundSchema(data as PolarRefund),
             }),
           ];
 

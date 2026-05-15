@@ -52,7 +52,10 @@ export const monnifyToPaykitEventMap: Record<
   SUCCESSFUL_TRANSACTION_OFFLINE: 'payment.created',
 };
 
-export const paykitCheckout$InboundSchema = (
+/**
+ * @internal
+ */
+export const Checkout$inboundSchema = (
   data: Record<string, any>,
 ): Checkout => {
   const metadataObj = (data.metaData || {}) as Record<string, unknown>;
@@ -71,14 +74,13 @@ export const paykitCheckout$InboundSchema = (
   }
 
   const metadata = omitInternalMetadata(metadataObj);
+  const email = data?.customerEmail || data?.customer?.email;
 
   return {
     id: data.transactionReference || data.paymentReference || '',
     amount: data.amountPaid || data.amount || 0,
     currency: data.currencyCode || data.currency || 'NGN',
-    customer: {
-      email: data?.customerEmail || data?.customer?.email || '',
-    },
+    customer: email ? { email } : null,
     payment_url: data.checkoutUrl || null,
     metadata,
     session_type: 'one_time',
@@ -91,7 +93,10 @@ export const paykitCheckout$InboundSchema = (
   };
 };
 
-export const paykitPayment$InboundSchema = (
+/**
+ * @internal
+ */
+export const Payment$inboundSchema = (
   data: Record<string, any>,
 ): Payment => {
   const metadataObj = (data.metaData || {}) as Record<string, unknown>;
@@ -122,14 +127,13 @@ export const paykitPayment$InboundSchema = (
   const paymentStatus = data.paymentStatus || data.status || 'PENDING';
   const status = statusMap[paymentStatus] || 'pending';
   const requiresAction = status === 'pending' || status === 'processing';
+  const email = data?.customerEmail || data?.customer?.email;
 
   return {
     id: data.transactionReference || data.paymentReference || '',
     amount: data.amountPaid || data.amount || 0,
     currency: data.currencyCode || data.currency || 'NGN',
-    customer: {
-      email: data?.customerEmail || data?.customer?.email || '',
-    },
+    customer: email ? { email } : null,
     status,
     item_id: parsed?.item ?? null,
     metadata,
@@ -138,7 +142,10 @@ export const paykitPayment$InboundSchema = (
   };
 };
 
-export const paykitRefund$InboundSchema = (
+/**
+ * @internal
+ */
+export const Refund$inboundSchema = (
   data: Record<string, any>,
 ): Refund => {
   const metadata = omitInternalMetadata(data.metaData ?? {});
