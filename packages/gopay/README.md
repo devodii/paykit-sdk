@@ -234,7 +234,7 @@ GOPAY_WEBHOOK_URL=https://your-domain.com/api/paykit/webhooks
 
 ## Documentation
 
-For detailed documentation, including setup guides, webhook configuration, and provider metadata requirements, see the [GoPay Provider Documentation](https://usepaykit.com/docs/providers/gopay).
+For detailed documentation, including setup guides, webhook configuration, and provider metadata requirements, see the [GoPay Provider Documentation](https://docs.usepaykit.com/providers/gopay).
 
 ## Support
 

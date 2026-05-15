@@ -4,16 +4,16 @@ import {
   Refund,
   omitInternalMetadata,
   parseJSON,
-  WebhookEventType,
+  StandardWebhookEventType,
   PAYKIT_METADATA_KEY,
+  Schema,
 } from '@paykit-sdk/core';
-import z from 'zod';
 
 export const monnifyToPaykitEventMap: Record<
   string,
   | string
   | null
-  | ((eventData: Record<string, unknown>) => WebhookEventType)
+  | ((eventData: Record<string, unknown>) => StandardWebhookEventType)
 > = {
   CUSTOMER_CREATED: null,
   CUSTOMER_UPDATED: null,
@@ -34,14 +34,12 @@ export const monnifyToPaykitEventMap: Record<
     return 'subscription.updated'; // catch-all for mandate changes
   },
 
-  // Payments
   SUCCESSFUL_TRANSACTION: 'payment.created',
 
   REJECTED_PAYMENT: 'payment.updated',
 
   SETTLEMENT: 'payment.updated',
 
-  // Refunds
   SUCCESSFUL_REFUND: 'refund.created',
   FAILED_REFUND: 'refund.created',
 
@@ -57,28 +55,19 @@ export const monnifyToPaykitEventMap: Record<
 export const paykitCheckout$InboundSchema = (
   data: Record<string, any>,
 ): Checkout => {
-  const metadataObj = (data.metaData || {}) as Record<
-    string,
-    unknown
-  >;
+  const metadataObj = (data.metaData || {}) as Record<string, unknown>;
   const paykitMetadata = metadataObj[PAYKIT_METADATA_KEY];
 
-  let item = '';
-  let qty = 1;
+  let parsed = null;
 
-  if (paykitMetadata) {
-    try {
-      const parsed = parseJSON(
-        typeof paykitMetadata === 'string'
-          ? paykitMetadata
-          : JSON.stringify(paykitMetadata),
-        z.object({ item: z.string(), qty: z.number() }),
-      );
-      item = parsed.item;
-      qty = parsed.qty;
-    } catch {
-      // If parsing fails, use defaults
-    }
+  if (typeof paykitMetadata === 'string') {
+    parsed = parseJSON(
+      paykitMetadata,
+      Schema.object({
+        item: Schema.string(),
+        qty: Schema.number().or(Schema.string()),
+      }),
+    );
   }
 
   const metadata = omitInternalMetadata(metadataObj);
@@ -93,33 +82,28 @@ export const paykitCheckout$InboundSchema = (
     payment_url: data.checkoutUrl || null,
     metadata,
     session_type: 'one_time',
-    products: [{ id: item, quantity: qty }],
+    products: [
+      {
+        id: parsed?.item ?? '',
+        quantity: parseInt(parsed?.qty?.toString() ?? '1'),
+      },
+    ],
   };
 };
 
 export const paykitPayment$InboundSchema = (
   data: Record<string, any>,
 ): Payment => {
-  const metadataObj = (data.metaData || {}) as Record<
-    string,
-    unknown
-  >;
+  const metadataObj = (data.metaData || {}) as Record<string, unknown>;
   const paykitMetadata = metadataObj[PAYKIT_METADATA_KEY];
 
-  let item: string | null = null;
+  let parsed = null;
 
-  if (paykitMetadata) {
-    try {
-      const parsed = parseJSON(
-        typeof paykitMetadata === 'string'
-          ? paykitMetadata
-          : JSON.stringify(paykitMetadata),
-        z.object({ item: z.string().optional() }),
-      );
-      item = parsed.item || null;
-    } catch {
-      // If parsing fails, item remains null
-    }
+  if (typeof paykitMetadata === 'string') {
+    parsed = parseJSON(
+      paykitMetadata,
+      Schema.object({ item: Schema.string().optional() }),
+    );
   }
 
   const metadata = omitInternalMetadata(metadataObj);
@@ -135,11 +119,9 @@ export const paykitPayment$InboundSchema = (
     EXPIRED: 'failed',
   };
 
-  const paymentStatus =
-    data.paymentStatus || data.status || 'PENDING';
+  const paymentStatus = data.paymentStatus || data.status || 'PENDING';
   const status = statusMap[paymentStatus] || 'pending';
-  const requiresAction =
-    status === 'pending' || status === 'processing';
+  const requiresAction = status === 'pending' || status === 'processing';
 
   return {
     id: data.transactionReference || data.paymentReference || '',
@@ -149,7 +131,7 @@ export const paykitPayment$InboundSchema = (
       email: data?.customerEmail || data?.customer?.email || '',
     },
     status,
-    item_id: item,
+    item_id: parsed?.item ?? null,
     metadata,
     requires_action: requiresAction,
     payment_url: null,
@@ -163,9 +145,7 @@ export const paykitRefund$InboundSchema = (
 
   return {
     id:
-      data.transactionReference ||
-      data.refundReference ||
-      crypto.randomUUID(),
+      data.transactionReference || data.refundReference || crypto.randomUUID(),
     amount: data.amountRefunded || data.amount || 0,
     currency: data.currencyCode || data.currency || 'NGN',
     reason: data.refundReason || data.reason || null,

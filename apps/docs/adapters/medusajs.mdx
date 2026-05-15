@@ -1,0 +1,41 @@
+---
+title: MedusaJS
+description: Use any PayKit provider inside a Medusa payment module.
+---
+
+```bash
+npm install @paykit-sdk/medusajs @paykit-sdk/core @paykit-sdk/stripe
+```
+
+## Setup
+
+```typescript filename="medusa-config.ts"
+import { defineConfig } from '@medusajs/framework/utils';
+import { stripe } from '@paykit-sdk/stripe';
+
+export default defineConfig({
+  modules: [
+    {
+      resolve: '@medusajs/payment',
+      options: {
+        providers: [
+          {
+            resolve: '@paykit-sdk/medusajs',
+            options: {
+              provider: stripe(),
+              webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+              debug: process.env.NODE_ENV === 'development',
+            },
+          },
+        ],
+      },
+    },
+  ],
+});
+```
+
+Swap `stripe()` for any PayKit provider and everything else stays the same.
+
+## Example
+
+See a working Medusa + PayKit server: [GitHub](https://github.com/usepaykit/medusa-example)

@@ -1,0 +1,84 @@
+---
+title: GoPay
+description: GoPay provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/gopay
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { gopay } from '@paykit-sdk/gopay';
+
+    export const paykit = new PayKit(gopay());
+    ```
+
+    Required env vars:
+    ```bash
+    GOPAY_CLIENT_ID=140...
+    GOPAY_CLIENT_SECRET=n6W...
+    GOPAY_GO_ID=864...
+    GOPAY_SANDBOX=true
+    GOPAY_WEBHOOK_URL=https://example.com/api/webhook
+    ```
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createGopay } from '@paykit-sdk/gopay';
+
+    export const paykit = new PayKit(
+      createGopay({
+        clientId: '140...',
+        clientSecret: 'n6W...',
+        goId: '864...',
+        isSandbox: true,
+        webhookUrl: 'https://example.com/api/webhook',
+      }),
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Webhooks
+
+<Warning>
+GoPay sends webhook notifications via GET requests. Your handler must accept GET, not POST.
+</Warning>
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: '' }) // GoPay does not use a shared secret
+  .on('payment.created', async event => { /* ... */ });
+
+await webhook.handle({
+  body: '',
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url, // GoPay passes the payment ID as a query param
+});
+```
+
+## provider_metadata
+
+GoPay requires `amount` and `currency` in `provider_metadata` on checkout:
+
+```typescript
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: '...',
+  cancel_url: '...',
+  provider_metadata: {
+    amount: '2900',
+    currency: 'CZK',
+    lang: 'en',
+  },
+});
+```

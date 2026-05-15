@@ -1,0 +1,77 @@
+---
+title: Monnify
+description: Monnify provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/monnify
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { monnify } from '@paykit-sdk/monnify';
+
+    export const paykit = new PayKit(monnify());
+    ```
+
+    Required env vars:
+    ```bash
+    MONNIFY_API_KEY=MK_TEST_...
+    MONNIFY_SECRET_KEY=your-secret-key
+    MONNIFY_SANDBOX=true
+    ```
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createMonnify } from '@paykit-sdk/monnify';
+
+    export const paykit = new PayKit(
+      createMonnify({
+        apiKey: 'MK_TEST_...',
+        secretKey: 'your-secret-key',
+        isSandbox: true,
+      }),
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Webhooks
+
+Enable these events in your Monnify dashboard:
+
+- `SUCCESSFUL_TRANSACTION`
+- `SUCCESSFUL_TRANSACTION_OFFLINE`
+- `REJECTED_PAYMENT`
+- `SETTLEMENT`
+- `MANDATE_UPDATE`
+- `SUCCESSFUL_REFUND`
+- `FAILED_REFUND`
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.MONNIFY_WEBHOOK_SECRET! })
+  .on('payment.created', async event => { /* ... */ })
+  .on('payment.updated', async event => { /* ... */ });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw Monnify events
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.MONNIFY_WEBHOOK_SECRET! })
+  .on('monnify.SUCCESSFUL_TRANSACTION', async event => {
+    // typed against Monnify's API types
+  });
+```

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "PayKit",
+  "colors": {
+    "primary": "#67E3AD",
+    "light": "#67E3AD",
+    "dark": "#006139"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Providers",
+        "pages": [
+          "providers/overview",
+          "providers/stripe",
+          "providers/paystack",
+          "providers/polar",
+          "providers/paypal",
+          "providers/gopay",
+          "providers/comgate",
+          "providers/monnify"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "concepts/api-reference",
+          "concepts/webhooks",
+          "concepts/error-handling"
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": [
+          "custom-provider",
+          "adapters/medusajs",
+          "adapters/agentic"
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/usepaykit/paykit-sdk"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "usepaykit.dev",
+      "href": "https://usepaykit.dev"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/usepaykit/paykit-sdk",
+      "x": "https://x.com/usepaykit"
+    }
+  }
+}

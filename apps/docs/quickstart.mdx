@@ -1,0 +1,84 @@
+---
+title: Quick Start
+description: Up and running in under a minute.
+---
+
+## 1. Install
+
+```bash
+npm install @paykit-sdk/core @paykit-sdk/stripe
+```
+
+## 2. Create a PayKit instance
+
+```typescript filename="lib/paykit.ts"
+import { PayKit, createEndpointHandlers } from '@paykit-sdk/core';
+import { stripe } from '@paykit-sdk/stripe';
+
+export const paykit = new PayKit(stripe());
+export const endpoints = createEndpointHandlers(paykit);
+```
+
+## 3. Mount the catch-all route
+
+`createEndpointHandlers` generates handlers for every PayKit resource. Mount them behind a single catch-all API route:
+
+```typescript filename="app/api/paykit/[...endpoint]/route.ts"
+import { endpoints } from '@/lib/paykit';
+import type { EndpointArgs, EndpointHandler, EndpointPath } from '@paykit-sdk/core';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ endpoint: string[] }> },
+) {
+  const { endpoint: endpointArray } = await params;
+  const endpoint = ('/' + endpointArray.join('/')) as EndpointPath;
+  const handler = endpoints[endpoint] as EndpointHandler<typeof endpoint>;
+
+  if (!handler) {
+    return NextResponse.json({ message: 'Endpoint not found' }, { status: 404 });
+  }
+
+  const body = await request.json();
+  const { args } = body as { args: EndpointArgs<typeof endpoint> };
+
+  try {
+    const result = await handler(...args);
+    return NextResponse.json({ result });
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 },
+    );
+  }
+}
+```
+
+## 4. Handle webhooks
+
+```typescript filename="app/api/paykit/webhook/route.ts"
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.STRIPE_WEBHOOK_SECRET! })
+  .on('payment.created', async event => {
+    console.log(event.data);
+  });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+## Swap providers
+
+Change one import and everything else stays the same:
+
+```typescript
+import { paystack } from '@paykit-sdk/paystack';
+
+export const paykit = new PayKit(paystack());
+```
+
+See [Providers](/providers/overview) for the full list.

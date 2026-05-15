@@ -1,0 +1,137 @@
+---
+title: Paystack
+description: Paystack provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/paystack
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { paystack } from '@paykit-sdk/paystack';
+
+    export const paykit = new PayKit(paystack());
+    ```
+
+    Required env vars:
+    ```bash
+    PAYSTACK_SECRET_KEY=sk_test_...
+    PAYSTACK_WEBHOOK_SECRET=your-webhook-secret
+    ```
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createPaystack } from '@paykit-sdk/paystack';
+
+    export const paykit = new PayKit(
+      createPaystack({ secretKey: 'sk_test_...', isSandbox: true }),
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## How it works
+
+Paystack uses an initialize-then-verify flow. `createCheckout` calls `POST /transaction/initialize` and returns an `authorization_url`. After payment, retrieve the transaction with `retrievePayment(reference)`. Amounts are in the smallest currency unit (kobo for NGN).
+
+## Webhooks
+
+Enable these events in your Paystack dashboard:
+
+- `charge.success`
+- `charge.failed`
+- `customer.create`
+- `customeridentification.success`
+- `customeridentification.failed`
+- `subscription.create`
+- `subscription.not_renew`
+- `subscription.disable`
+- `invoice.create`
+- `invoice.update`
+- `invoice.payment_failed`
+- `refund.pending`
+- `refund.processed`
+- `refund.failed`
+
+Paystack signs webhooks with HMAC-SHA512 via the `x-paystack-signature` header.
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET! })
+  .on('payment.created', async event => { /* ... */ })
+  .on('subscription.created', async event => { /* ... */ })
+  .on('customer.created', async event => { /* ... */ })
+  .on('invoice.generated', async event => { /* ... */ });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw Paystack events
+
+Opt into any native Paystack event — fully typed against Paystack's API types:
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET! })
+  .on('paystack.charge.success', async event => {
+    // event.data is typed as PaystackTransaction
+  })
+  .on('paystack.subscription.create', async event => {
+    // event.data is typed as PaystackSubscription
+  })
+  .on('paystack.refund.processed', async event => {
+    // event.data is typed as PaystackRefund
+  });
+```
+
+All available raw events:
+
+| Event | Data type |
+|---|---|
+| `paystack.charge.success` | `PaystackTransaction` |
+| `paystack.charge.dispute.create/remind/resolve` | `PaystackDispute` |
+| `paystack.customeridentification.success/failed` | `PaystackCustomerIdentification` |
+| `paystack.dedicatedaccount.assign.success/failed` | `PaystackDVAAssignment` |
+| `paystack.invoice.create/update/payment_failed` | `PaystackInvoice` |
+| `paystack.paymentrequest.pending/success` | `PaystackPaymentRequest` |
+| `paystack.refund.failed/pending/processed/processing` | `PaystackRefund` |
+| `paystack.subscription.create/enable/disable/not_renew` | `PaystackSubscription` |
+| `paystack.transfer.success/failed/reversed` | `PaystackTransfer` |
+
+## provider_metadata
+
+```typescript
+// checkout.provider_metadata is typed as { amount?: number; currency?: string }
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'PLN_abc123',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: '...',
+  cancel_url: '...',
+  provider_metadata: {
+    amount: 500000, // override amount in kobo
+    currency: 'NGN',
+  },
+});
+
+// refund.provider_metadata is typed as { merchant_note: string; customer_note: string }
+await paykit.refunds.create({
+  payment_id: 'ref_abc123',
+  amount: 5000,
+  provider_metadata: {
+    merchant_note: 'Duplicate charge',
+    customer_note: 'Sorry for the inconvenience',
+  },
+});
+```

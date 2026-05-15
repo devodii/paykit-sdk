@@ -1,0 +1,143 @@
+---
+title: Custom Provider
+description: Build your own payment provider for PayKit.
+---
+
+Any class that implements `PayKitProvider` works with PayKit. Only `@paykit-sdk/core` is needed.
+
+## Install
+
+```bash
+npm install @paykit-sdk/core
+```
+
+## Full example (HTTP API)
+
+```typescript
+import {
+  AbstractPayKitProvider,
+  PayKitProvider,
+  HTTPClient,
+  ProviderMetadataRegistry,
+  PaykitProviderOptions,
+  schema,
+  ValidationError,
+  NotImplementedError,
+  ProviderNotSupportedError,
+  createCheckoutSchema,
+  CreateCheckoutSchema,
+  Checkout,
+  WebhookEventPayload,
+  WebhookHandlerConfig,
+} from '@paykit-sdk/core';
+import { z } from 'zod';
+
+// 1. Define typed provider_metadata per resource
+interface MyMetadata extends ProviderMetadataRegistry {
+  checkout?: { custom_reference?: string };
+  refund?: { reason_code?: string };
+}
+
+// 2. Define typed raw events
+type MyRawEvents = {
+  'myprovider.payment.completed': { id: string; amount: number };
+  'myprovider.refund.processed': { id: string };
+};
+
+// 3. Define options
+export interface MyProviderOptions extends PaykitProviderOptions {
+  apiKey: string;
+}
+
+const optionsSchema = schema<MyProviderOptions>()(
+  z.object({
+    apiKey: z.string().min(1, 'API key is required'),
+    isSandbox: z.boolean(),
+  }),
+);
+
+// 4. Implement the provider
+export class MyProvider
+  extends AbstractPayKitProvider
+  implements PayKitProvider<MyMetadata, null, MyRawEvents>
+{
+  readonly providerName = 'my-provider';
+  private _client: HTTPClient;
+
+  constructor(protected readonly opts: MyProviderOptions) {
+    super(optionsSchema, opts, 'my-provider');
+
+    this._client = new HTTPClient({
+      baseUrl: opts.isSandbox
+        ? 'https://api.sandbox.myprovider.com'
+        : 'https://api.myprovider.com',
+      headers: {
+        Authorization: `Bearer ${opts.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      retryOptions: { max: 3, baseDelay: 1000, debug: opts.debug ?? false },
+    });
+  }
+
+  get _native() { return null; }
+
+  createCheckout = async (
+    params: CreateCheckoutSchema<MyMetadata['checkout']>,
+  ): Promise<Checkout> => {
+    const { error, data } = createCheckoutSchema.safeParse(params);
+    if (error) throw ValidationError.fromZodError(error, this.providerName, 'createCheckout');
+
+    const res = await this._client.post<Record<string, unknown>>('/checkouts', {
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create checkout');
+    return res.value as unknown as Checkout;
+  };
+
+  // Mark operations not supported by this provider
+  updateCheckout = (_id: string) =>
+    Promise.reject(
+      new ProviderNotSupportedError('updateCheckout', this.providerName, {
+        reason: 'This provider does not support modifying checkouts after creation',
+      }),
+    );
+
+  // Mark operations planned for the future
+  deleteCheckout = (_id: string) =>
+    Promise.reject(
+      new NotImplementedError('deleteCheckout', this.providerName, { futureSupport: true }),
+    );
+
+  // ... implement remaining required methods
+
+  handleWebhook = async (
+    payload: WebhookHandlerConfig,
+    webhookSecret: string,
+  ): Promise<Array<WebhookEventPayload<MyRawEvents>>> => {
+    const signature = payload.headersAsObject['x-signature'];
+    if (!signature) throw new Error('Missing signature');
+
+    // verify signature, parse body, return typed events
+    return [];
+  };
+}
+```
+
+## Error helpers
+
+| Class | Use for |
+|---|---|
+| `ValidationError.fromZodError(err, provider, method)` | Invalid input |
+| `ProviderNotSupportedError(method, provider, { reason })` | Operations the provider will never support |
+| `NotImplementedError(method, provider, { futureSupport })` | Not built yet |
+
+## Register it
+
+```typescript
+import { PayKit, createEndpointHandlers } from '@paykit-sdk/core';
+
+export const paykit = new PayKit(
+  new MyProvider({ apiKey: 'key_...', isSandbox: true }),
+);
+export const endpoints = createEndpointHandlers(paykit);
+```

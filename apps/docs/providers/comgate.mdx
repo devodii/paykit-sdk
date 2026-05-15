@@ -1,0 +1,67 @@
+---
+title: Comgate
+description: Comgate provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/comgate
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { comgate } from '@paykit-sdk/comgate';
+
+    export const paykit = new PayKit(comgate());
+    ```
+
+    Required env vars:
+    ```bash
+    COMGATE_MERCHANT=your-merchant-id
+    COMGATE_SECRET=your-secret
+    COMGATE_SANDBOX=true
+    ```
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createComgate } from '@paykit-sdk/comgate';
+
+    export const paykit = new PayKit(
+      createComgate({
+        merchant: 'your-merchant-id',
+        secret: 'your-secret',
+        isSandbox: true,
+      }),
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Webhooks
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.COMGATE_WEBHOOK_SECRET! })
+  .on('payment.created', async event => { /* ... */ })
+  .on('payment.updated', async event => { /* ... */ });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw Comgate events
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.COMGATE_WEBHOOK_SECRET! })
+  .on('comgate.payment_paid', async event => {
+    // typed against Comgate's API types
+  });
+```

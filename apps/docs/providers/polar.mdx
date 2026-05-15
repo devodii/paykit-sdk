@@ -1,0 +1,77 @@
+---
+title: Polar
+description: Polar provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/polar
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { polar } from '@paykit-sdk/polar';
+
+    export const paykit = new PayKit(polar());
+    ```
+
+    Required env vars:
+    ```bash
+    POLAR_ACCESS_TOKEN=polar_oat_...
+    POLAR_WEBHOOK_SECRET=your-webhook-secret
+    ```
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createPolar } from '@paykit-sdk/polar';
+
+    export const paykit = new PayKit(
+      createPolar({ accessToken: 'polar_oat_...', isSandbox: true }),
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Webhooks
+
+Enable these events in your Polar dashboard:
+
+- `order.paid`
+- `order.created`
+- `customer.created`
+- `customer.updated`
+- `customer.deleted`
+- `subscription.created`
+- `subscription.updated`
+- `subscription.revoked`
+- `refund.created`
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.POLAR_WEBHOOK_SECRET! })
+  .on('payment.created', async event => { /* ... */ })
+  .on('subscription.created', async event => { /* ... */ })
+  .on('customer.created', async event => { /* ... */ })
+  .on('refund.created', async event => { /* ... */ });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw Polar events
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.POLAR_WEBHOOK_SECRET! })
+  .on('polar.order.paid', async event => {
+    // typed against Polar's API types
+  })
+  .on('polar.subscription.revoked', async event => { /* ... */ });
+```

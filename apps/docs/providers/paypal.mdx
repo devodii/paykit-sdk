@@ -1,0 +1,81 @@
+---
+title: PayPal
+description: PayPal provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/paypal
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { paypal } from '@paykit-sdk/paypal';
+
+    export const paykit = new PayKit(paypal());
+    ```
+
+    Required env vars:
+    ```bash
+    PAYPAL_CLIENT_ID=...
+    PAYPAL_CLIENT_SECRET=...
+    PAYPAL_SANDBOX=true
+    PAYPAL_WEBHOOK_SECRET=...
+    ```
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createPayPal } from '@paykit-sdk/paypal';
+
+    export const paykit = new PayKit(
+      createPayPal({
+        clientId: '...',
+        clientSecret: '...',
+        isSandbox: true,
+      }),
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Webhooks
+
+Enable these events in your PayPal dashboard:
+
+- `CHECKOUT.ORDER.APPROVED`
+- `CHECKOUT.ORDER.COMPLETED`
+- `PAYMENT.CAPTURE.COMPLETED`
+- `PAYMENT.CAPTURE.REFUNDED`
+- `BILLING.SUBSCRIPTION.CREATED`
+- `BILLING.SUBSCRIPTION.UPDATED`
+- `BILLING.SUBSCRIPTION.ACTIVATED`
+- `BILLING.SUBSCRIPTION.SUSPENDED`
+- `BILLING.SUBSCRIPTION.CANCELLED`
+- `BILLING.SUBSCRIPTION.EXPIRED`
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.PAYPAL_WEBHOOK_SECRET! })
+  .on('payment.created', async event => { /* ... */ })
+  .on('subscription.created', async event => { /* ... */ });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw PayPal events
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.PAYPAL_WEBHOOK_SECRET! })
+  .on('paypal.PAYMENT.SALE.COMPLETED', async event => {
+    // typed against PayPal's API types
+  });
+```

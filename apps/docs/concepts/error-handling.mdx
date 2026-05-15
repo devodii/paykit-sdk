@@ -1,0 +1,60 @@
+---
+title: Error Handling
+description: Every PayKit method returns a [data, error] tuple.
+---
+
+No try/catch needed. Every method returns `[data, error]`:
+
+```typescript
+const [customer, error] = await paykit.customers.create({
+  email: 'user@example.com',
+  name: 'Jane Doe',
+});
+
+if (error) {
+  console.error(error.message);
+  return;
+}
+
+console.log(customer.id);
+```
+
+## Error types
+
+Import from `@paykit-sdk/core`:
+
+```typescript
+import {
+  ValidationError,
+  ConfigurationError,
+  ProviderNotSupportedError,
+  NotImplementedError,
+} from '@paykit-sdk/core';
+```
+
+| Error | When |
+|---|---|
+| `ValidationError` | Input fails schema validation |
+| `ConfigurationError` | Provider misconfigured or missing env vars |
+| `ProviderNotSupportedError` | Operation not supported by this provider |
+| `NotImplementedError` | Operation planned but not yet built |
+
+## Example
+
+```typescript
+const [checkout, error] = await paykit.checkouts.create({ ... });
+
+if (error instanceof ValidationError) {
+  return res.status(400).json({ error: error.message });
+}
+
+if (error instanceof ProviderNotSupportedError) {
+  return res.status(501).json({ error: 'Not supported by this provider' });
+}
+
+if (error) {
+  return res.status(500).json({ error: 'Unexpected error' });
+}
+
+redirect(checkout.payment_url);
+```

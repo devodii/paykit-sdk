@@ -1,0 +1,144 @@
+---
+title: API Reference
+description: Core resource types and methods.
+---
+
+All methods return `[data, error]` tuples. See [Error Handling](/concepts/error-handling) for the pattern.
+
+## Customer
+
+```typescript
+interface Customer {
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
+  metadata?: Record<string, string>;
+  created_at: Date;
+  updated_at: Date | null;
+}
+
+const [customer, error] = await paykit.customers.create({
+  email: 'user@example.com',
+  name: 'Jane Doe',
+  phone: '+1234567890',
+  metadata: { plan: 'pro' },
+});
+
+const [customer, error] = await paykit.customers.retrieve('cus_123');
+
+const [customer, error] = await paykit.customers.update('cus_123', {
+  name: 'Jane Smith',
+});
+```
+
+## Checkout
+
+```typescript
+interface Checkout {
+  id: string;
+  customer: Payee;         // string ID or { email: string }
+  payment_url: string;
+  metadata: Record<string, string> | null;
+  session_type: 'one_time' | 'recurring';
+  products: Array<{ id: string; quantity: number }>;
+  currency: string;
+  amount: number;
+}
+
+const [checkout, error] = await paykit.checkouts.create({
+  customer: 'cus_123',           // or { email: 'user@example.com' }
+  item_id: 'price_123',
+  session_type: 'one_time',
+  quantity: 1,
+  metadata: { source: 'web' },
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: { /* typed per provider */ },
+});
+
+const [checkout, error] = await paykit.checkouts.retrieve('cs_123');
+```
+
+## Subscription
+
+```typescript
+type SubscriptionBillingInterval =
+  | 'day' | 'week' | 'month' | 'year'
+  | { type: 'custom'; durationMs: number };
+
+interface Subscription {
+  id: string;
+  customer: Payee;
+  amount: number;
+  currency: string;
+  status: 'active' | 'past_due' | 'canceled' | 'expired' | 'pending';
+  current_period_start: Date;
+  current_period_end: Date;
+  item_id: string;
+  billing_interval: SubscriptionBillingInterval;
+  metadata: Record<string, string> | null;
+}
+
+const [subscription, error] = await paykit.subscriptions.create({
+  customer: 'cus_123',
+  item_id: 'price_123',
+  metadata: { plan: 'pro' },
+});
+
+const [subscription, error] = await paykit.subscriptions.cancel('sub_123');
+```
+
+## Payment
+
+```typescript
+interface Payment {
+  id: string;
+  amount: number;
+  currency: string;
+  customer: Payee;
+  status: 'pending' | 'processing' | 'requires_action' | 'requires_capture' | 'succeeded' | 'canceled' | 'failed';
+  metadata: Record<string, string>;
+  item_id: string | null;
+  requires_action: boolean;
+  payment_url: string | null;
+}
+
+const [payment, error] = await paykit.payments.retrieve('pay_123');
+```
+
+## Refund
+
+```typescript
+interface Refund {
+  id: string;
+  amount: number;
+  currency: string;
+  reason: string | null;
+  metadata: Record<string, string> | null;
+}
+
+const [refund, error] = await paykit.refunds.create({
+  payment_id: 'pay_123',
+  amount: 1000,
+  reason: 'requested_by_customer',
+  provider_metadata: { /* typed per provider */ },
+});
+```
+
+## Invoice
+
+```typescript
+interface Invoice {
+  id: string;
+  customer: Payee;
+  subscription_id: string | null;
+  billing_mode: 'one_time' | 'recurring';
+  amount_paid: number;
+  currency: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+  paid_at: string | null;
+  line_items: Array<{ id: string; quantity: number }> | null;
+  metadata: Record<string, string> | null;
+}
+```

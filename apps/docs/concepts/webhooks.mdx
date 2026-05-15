@@ -1,0 +1,80 @@
+---
+title: Webhooks
+description: Handle provider events with one typed API.
+---
+
+PayKit normalizes webhook events into a consistent set of typed events across all providers.
+
+## Setup
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.YOUR_WEBHOOK_SECRET! })
+  .on('customer.created', async event => {
+    // event.data is typed as Customer
+  })
+  .on('subscription.created', async event => {
+    // event.data is typed as Subscription
+  })
+  .on('payment.created', async event => {
+    // event.data is typed as Payment
+  })
+  .on('refund.created', async event => {
+    // event.data is typed as Refund
+  })
+  .on('invoice.generated', async event => {
+    // event.data is typed as Invoice
+  });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+## Standard events
+
+| Event | Data type |
+|---|---|
+| `customer.created` | `Customer` |
+| `customer.updated` | `Customer` |
+| `customer.deleted` | `Customer` |
+| `subscription.created` | `Subscription` |
+| `subscription.updated` | `Subscription` |
+| `subscription.canceled` | `Subscription` |
+| `payment.created` | `Payment` |
+| `payment.updated` | `Payment` |
+| `payment.canceled` | `Payment` |
+| `refund.created` | `Refund` |
+| `invoice.generated` | `Invoice` |
+
+## Raw provider events
+
+You can also listen to native provider events directly. These are prefixed with the provider name and fully typed:
+
+```typescript
+// Stripe — typed as Stripe.Checkout.Session
+.on('stripe.checkout.session.completed', async event => {
+  console.log(event.data.payment_intent);
+})
+
+// Paystack — typed as PaystackTransaction
+.on('paystack.charge.success', async event => {
+  console.log(event.data.reference);
+})
+```
+
+Standard events and raw events can be mixed freely on the same webhook instance.
+
+## headersAsObject
+
+`webhook.handle` expects `headersAsObject` as a plain `Record<string, string>`. Convert from your framework's headers object using `Object.fromEntries`:
+
+```typescript
+// Web Request (Next.js, Hono, etc.)
+headersAsObject: Object.fromEntries(request.headers)
+
+// Express
+headersAsObject: req.headers as Record<string, string>
+```

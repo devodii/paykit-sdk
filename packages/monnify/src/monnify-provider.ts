@@ -34,9 +34,9 @@ import {
   isEmailCustomer,
   ProviderMetadataRegistry,
   WebhookHandlerConfig,
+  Schema,
 } from '@paykit-sdk/core';
 import { sha512 } from 'js-sha512';
-import { z } from 'zod';
 import {
   monnifyToPaykitEventMap,
   paykitCheckout$InboundSchema,
@@ -66,10 +66,10 @@ export interface MonnifyOptions extends PaykitProviderOptions {
 }
 
 const monnifyOptionsSchema = schema<MonnifyOptions>()(
-  z.object({
-    apiKey: z.string(),
-    secretKey: z.string(),
-    isSandbox: z.boolean(),
+  Schema.object({
+    apiKey: Schema.string(),
+    secretKey: Schema.string(),
+    isSandbox: Schema.boolean(),
   }),
 );
 
@@ -127,17 +127,13 @@ export class MonnifyProvider
    * Validates schema and throws ValidationError if invalid
    */
   private validateSchema<T>(
-    schema: z.ZodSchema<T>,
+    schema: Schema.ZodSchema<T>,
     params: unknown,
     method: string,
   ): T {
     const { error, data } = schema.safeParse(params);
     if (error) {
-      throw ValidationError.fromZodError(
-        error,
-        this.providerName,
-        method,
-      );
+      throw ValidationError.fromZodError(error, this.providerName, method);
     }
     return data;
   }
@@ -157,8 +153,7 @@ export class MonnifyProvider
     if (!response.ok || !response.value?.responseBody) {
       throw new OperationFailedError(method, this.providerName, {
         cause: new Error(
-          errorMessage ||
-            JSON.stringify(response.error ?? response.value),
+          errorMessage || JSON.stringify(response.error ?? response.value),
         ),
       });
     }
@@ -188,21 +183,15 @@ export class MonnifyProvider
     );
 
     if (!altResponse.ok || !altResponse.value?.responseBody) {
-      throw new OperationFailedError(
-        'queryTransaction',
-        this.providerName,
-        {
-          cause: new Error(errorMessage),
-        },
-      );
+      throw new OperationFailedError('queryTransaction', this.providerName, {
+        cause: new Error(errorMessage),
+      });
     }
 
     return altResponse.value.responseBody;
   }
 
-  createCheckout = async (
-    params: CreateCheckoutSchema,
-  ): Promise<Checkout> => {
+  createCheckout = async (params: CreateCheckoutSchema): Promise<Checkout> => {
     const data = this.validateSchema(
       createCheckoutSchema,
       params,
@@ -223,10 +212,7 @@ export class MonnifyProvider
 
     const { amount, currency } = validateRequiredKeys(
       ['amount', 'currency'],
-      (data.provider_metadata ?? { currency: 'NGN' }) as Record<
-        string,
-        string
-      >,
+      (data.provider_metadata ?? { currency: 'NGN' }) as Record<string, string>,
       'The following fields must be present in the provider_metadata of createCheckout: {keys}',
     );
 
@@ -257,18 +243,13 @@ export class MonnifyProvider
       },
     );
 
-    const responseBody = this.ensureResponse(
-      response,
-      'createCheckout',
-    );
+    const responseBody = this.ensureResponse(response, 'createCheckout');
 
     const transactionReference = responseBody.transactionReference;
     const checkoutUrl = responseBody.checkoutUrl;
 
     // Query the transaction to get full details
-    const checkoutResponse = await this._client.get<
-      Record<string, any>
-    >(
+    const checkoutResponse = await this._client.get<Record<string, any>>(
       `/v2/merchant/transactions/query?paymentReference=${paymentReference}`,
       { headers: await this.tokenManager.getAuthHeaders() },
     );
@@ -298,148 +279,94 @@ export class MonnifyProvider
     id: string,
     params: UpdateCheckoutSchema,
   ): Promise<Checkout> => {
-    throw new ProviderNotSupportedError(
-      'updateCheckout',
-      'Moniepoint',
-      {
-        reason: 'Moniepoint does not support updating checkouts',
-        alternative: 'Use the updatePayment method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('updateCheckout', 'Moniepoint', {
+      reason: 'Moniepoint does not support updating checkouts',
+      alternative: 'Use the updatePayment method instead',
+    });
   };
 
   deleteCheckout = async (id: string): Promise<null> => {
-    throw new ProviderNotSupportedError(
-      'deleteCheckout',
-      'Moniepoint',
-      {
-        reason: 'Moniepoint does not support deleting checkouts',
-        alternative: 'Use the deletePayment method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('deleteCheckout', 'Moniepoint', {
+      reason: 'Moniepoint does not support deleting checkouts',
+      alternative: 'Use the deletePayment method instead',
+    });
   };
 
-  createCustomer = async (
-    params: CreateCustomerParams,
-  ): Promise<Customer> => {
-    throw new ProviderNotSupportedError(
-      'createCustomer',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support creating customers",
-      },
-    );
+  createCustomer = async (params: CreateCustomerParams): Promise<Customer> => {
+    throw new ProviderNotSupportedError('createCustomer', 'Moniepoint', {
+      reason: "Moniepoint doesn't support creating customers",
+    });
   };
 
   retrieveCustomer = async (id: string): Promise<Customer | null> => {
-    throw new ProviderNotSupportedError(
-      'retrieveCustomer',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support retrieving customers",
-        alternative: 'Use the retrieveCustomer method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('retrieveCustomer', 'Moniepoint', {
+      reason: "Moniepoint doesn't support retrieving customers",
+      alternative: 'Use the retrieveCustomer method instead',
+    });
   };
 
   updateCustomer = async (
     id: string,
     params: UpdateCustomerParams,
   ): Promise<Customer> => {
-    throw new ProviderNotSupportedError(
-      'updateCustomer',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support updating customers",
-        alternative: 'Use the updateCustomer method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('updateCustomer', 'Moniepoint', {
+      reason: "Moniepoint doesn't support updating customers",
+      alternative: 'Use the updateCustomer method instead',
+    });
   };
 
   deleteCustomer = async (id: string): Promise<null> => {
-    throw new ProviderNotSupportedError(
-      'deleteCustomer',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support deleting customers",
-        alternative: 'Use the deleteCustomer method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('deleteCustomer', 'Moniepoint', {
+      reason: "Moniepoint doesn't support deleting customers",
+      alternative: 'Use the deleteCustomer method instead',
+    });
   };
 
   createSubscription = async (
     params: CreateSubscriptionSchema,
   ): Promise<Subscription> => {
-    throw new ProviderNotSupportedError(
-      'createSubscription',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support creating subscriptions",
-        alternative: 'Use the createSubscription method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('createSubscription', 'Moniepoint', {
+      reason: "Moniepoint doesn't support creating subscriptions",
+      alternative: 'Use the createSubscription method instead',
+    });
   };
 
   updateSubscription = async (
     id: string,
     params: UpdateSubscriptionSchema,
   ): Promise<Subscription> => {
-    throw new ProviderNotSupportedError(
-      'updateSubscription',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support updating subscriptions",
-        alternative: 'Use the updateSubscription method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('updateSubscription', 'Moniepoint', {
+      reason: "Moniepoint doesn't support updating subscriptions",
+      alternative: 'Use the updateSubscription method instead',
+    });
   };
 
   cancelSubscription = async (id: string): Promise<Subscription> => {
-    throw new ProviderNotSupportedError(
-      'cancelSubscription',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support canceling subscriptions",
-        alternative: 'Use the cancelSubscription method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('cancelSubscription', 'Moniepoint', {
+      reason: "Moniepoint doesn't support canceling subscriptions",
+      alternative: 'Use the cancelSubscription method instead',
+    });
   };
 
   deleteSubscription = async (id: string): Promise<null> => {
-    throw new ProviderNotSupportedError(
-      'deleteSubscription',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support deleting subscriptions",
-        alternative: 'Use the deleteSubscription method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('deleteSubscription', 'Moniepoint', {
+      reason: "Moniepoint doesn't support deleting subscriptions",
+      alternative: 'Use the deleteSubscription method instead',
+    });
   };
 
-  retrieveSubscription = async (
-    id: string,
-  ): Promise<Subscription | null> => {
-    throw new ProviderNotSupportedError(
-      'retrieveSubscription',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support retrieving subscriptions",
-        alternative: 'Use the retrieveSubscription method instead',
-      },
-    );
+  retrieveSubscription = async (id: string): Promise<Subscription | null> => {
+    throw new ProviderNotSupportedError('retrieveSubscription', 'Moniepoint', {
+      reason: "Moniepoint doesn't support retrieving subscriptions",
+      alternative: 'Use the retrieveSubscription method instead',
+    });
   };
 
-  createPayment = async (
-    params: CreatePaymentSchema,
-  ): Promise<Payment> => {
-    throw new ProviderNotSupportedError(
-      'createPayment',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support creating payments",
-        alternative: 'Use the createPayment method instead',
-      },
-    );
+  createPayment = async (params: CreatePaymentSchema): Promise<Payment> => {
+    throw new ProviderNotSupportedError('createPayment', 'Moniepoint', {
+      reason: "Moniepoint doesn't support creating payments",
+      alternative: 'Use the createPayment method instead',
+    });
   };
 
   retrievePayment = async (id: string): Promise<Payment | null> => {
@@ -455,55 +382,37 @@ export class MonnifyProvider
     id: string,
     params: UpdatePaymentSchema,
   ): Promise<Payment> => {
-    throw new ProviderNotSupportedError(
-      'updatePayment',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support updating payments",
-        alternative: 'Use the updatePayment method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('updatePayment', 'Moniepoint', {
+      reason: "Moniepoint doesn't support updating payments",
+      alternative: 'Use the updatePayment method instead',
+    });
   };
 
   deletePayment = async (id: string): Promise<null> => {
-    throw new ProviderNotSupportedError(
-      'deletePayment',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support deleting payments",
-        alternative: 'Use the deletePayment method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('deletePayment', 'Moniepoint', {
+      reason: "Moniepoint doesn't support deleting payments",
+      alternative: 'Use the deletePayment method instead',
+    });
   };
 
   capturePayment = async (
     id: string,
     params: CapturePaymentSchema,
   ): Promise<Payment> => {
-    throw new ProviderNotSupportedError(
-      'capturePayment',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support capturing payments",
-        alternative: 'Use the capturePayment method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('capturePayment', 'Moniepoint', {
+      reason: "Moniepoint doesn't support capturing payments",
+      alternative: 'Use the capturePayment method instead',
+    });
   };
 
   cancelPayment = async (id: string): Promise<Payment> => {
-    throw new ProviderNotSupportedError(
-      'cancelPayment',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support canceling payments",
-        alternative: 'Use the cancelPayment method instead',
-      },
-    );
+    throw new ProviderNotSupportedError('cancelPayment', 'Moniepoint', {
+      reason: "Moniepoint doesn't support canceling payments",
+      alternative: 'Use the cancelPayment method instead',
+    });
   };
 
-  createRefund = async (
-    params: CreateRefundSchema,
-  ): Promise<Refund> => {
+  createRefund = async (params: CreateRefundSchema): Promise<Refund> => {
     const data = this.validateSchema(
       createRefundSchema,
       params,
@@ -514,13 +423,9 @@ export class MonnifyProvider
     const payment = await this.retrievePayment(data.payment_id);
 
     if (!payment) {
-      throw new OperationFailedError(
-        'createRefund',
-        this.providerName,
-        {
-          cause: new Error('Payment not found'),
-        },
-      );
+      throw new OperationFailedError('createRefund', this.providerName, {
+        cause: new Error('Payment not found'),
+      });
     }
 
     const body: Record<string, unknown> = {
@@ -538,10 +443,7 @@ export class MonnifyProvider
       },
     );
 
-    const responseBody = this.ensureResponse(
-      response,
-      'createRefund',
-    );
+    const responseBody = this.ensureResponse(response, 'createRefund');
 
     return paykitRefund$InboundSchema({
       ...responseBody,
@@ -563,25 +465,28 @@ export class MonnifyProvider
       });
     }
 
-    const computedHash = sha512.hmac(
-      webhookSecret,
-      JSON.stringify(body),
-    );
+    const computedHash = sha512.hmac(webhookSecret, JSON.stringify(body));
 
     if (computedHash !== receivedHash)
       throw new WebhookError('Invalid Monnify signature', {
         provider: this.providerName,
       });
 
-    const { eventType, eventData } = parseJSON(
+    const parsedBody = parseJSON(
       body,
-      z
-        .object({
-          eventType: z.string(),
-          eventData: z.record(z.any()),
-        })
-        .strict(),
+      Schema.object({
+        eventType: Schema.string(),
+        eventData: Schema.record(Schema.any()),
+      }).strict(),
     );
+
+    if (!parsedBody) {
+      throw new WebhookError('Invalid webhook payload: not valid JSON', {
+        provider: this.providerName,
+      });
+    }
+
+    const { eventType, eventData } = parsedBody;
 
     const eventMapper = monnifyToPaykitEventMap[eventType];
 

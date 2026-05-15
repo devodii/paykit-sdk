@@ -1,0 +1,130 @@
+---
+title: Stripe
+description: Stripe provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/stripe
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { stripe } from '@paykit-sdk/stripe';
+
+    export const paykit = new PayKit(stripe());
+    ```
+
+    Required env vars:
+    ```bash
+    STRIPE_API_KEY=sk_test_...
+    STRIPE_WEBHOOK_SECRET=whsec_...
+    ```
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createStripe } from '@paykit-sdk/stripe';
+
+    export const paykit = new PayKit(
+      createStripe({ apiKey: 'sk_test_...', isSandbox: true }),
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Webhooks
+
+Enable these events in your Stripe dashboard:
+
+- `checkout.session.completed`
+- `customer.created`
+- `customer.updated`
+- `customer.deleted`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `payment_intent.created`
+- `payment_intent.succeeded`
+- `payment_intent.canceled`
+- `payment_intent.processing`
+- `payment_intent.requires_action`
+- `payment_intent.amount_capturable_updated`
+- `payment_intent.payment_failed`
+- `invoice.paid`
+- `refund.created`
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.STRIPE_WEBHOOK_SECRET! })
+  .on('payment.created', async event => { /* ... */ })
+  .on('subscription.created', async event => { /* ... */ })
+  .on('customer.created', async event => { /* ... */ })
+  .on('invoice.generated', async event => { /* ... */ });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw Stripe events
+
+Opt into any native Stripe event — fully typed against the Stripe SDK types:
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.STRIPE_WEBHOOK_SECRET! })
+  .on('stripe.checkout.session.completed', async event => {
+    // event.data is typed as Stripe.Checkout.Session
+    console.log(event.data.payment_intent);
+  })
+  .on('stripe.customer.subscription.trial_will_end', async event => {
+    // event.data is typed as Stripe.Subscription
+  });
+```
+
+All Stripe event types (`stripe.<Stripe.Event.Type>`) are available and typed.
+
+## provider_metadata
+
+`provider_metadata` for Stripe operations is typed directly against the Stripe SDK params:
+
+```typescript
+// checkout.provider_metadata is typed as Stripe.Checkout.SessionCreateParams
+await paykit.checkouts.create({
+  customer: 'cus_123',
+  item_id: 'price_123',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: '...',
+  cancel_url: '...',
+  provider_metadata: {
+    tax_id_collection: { enabled: true },
+    payment_method_collection: 'always',
+    allow_promotion_codes: true,
+  },
+});
+
+// customer.provider_metadata is typed as Stripe.CustomerCreateParams
+await paykit.customers.create({
+  email: 'user@example.com',
+  provider_metadata: {
+    preferred_locales: ['en'],
+    tax_exempt: 'exempt',
+  },
+});
+
+// refund.provider_metadata is typed as Stripe.RefundCreateParams
+await paykit.refunds.create({
+  payment_id: 'pi_123',
+  amount: 1000,
+  provider_metadata: {
+    reason: 'fraudulent',
+  },
+});
+```
