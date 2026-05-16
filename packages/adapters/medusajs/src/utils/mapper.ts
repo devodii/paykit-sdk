@@ -1,7 +1,10 @@
 import { PaymentSessionStatus } from '@medusajs/framework/utils';
 import { PaymentStatus } from '@paykit-sdk/core';
 
-export const medusaStatus$InboundSchema = (status: PaymentStatus) => {
+/**
+ * @internal
+ */
+export const PaymentStatus$inboundSchema = (status: PaymentStatus) => {
   switch (status) {
     case 'pending':
     case 'processing':

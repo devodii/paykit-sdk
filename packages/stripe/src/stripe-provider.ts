@@ -88,7 +88,10 @@ const StripeOptions$inboundSchema = schema<
 const providerName = 'stripe';
 
 type StripeRawEvents = {
-  [K in Stripe.Event.Type as `stripe.${K}`]: Extract<Stripe.Event, { type: K }>;
+  [K in Stripe.Event.Type as `stripe.${K}`]: Extract<
+    Stripe.Event,
+    { type: K }
+  >;
 };
 
 export class StripeProvider
@@ -126,11 +129,14 @@ export class StripeProvider
       );
     }
 
-    const checkoutMetadata = stringifyMetadataValues(data.metadata ?? {});
+    const checkoutMetadata = stringifyMetadataValues(
+      data.metadata ?? {},
+    );
 
     const checkoutOptions: Stripe.Checkout.SessionCreateParams = {
       ...data.provider_metadata,
-      mode: data.session_type === 'one_time' ? 'payment' : 'subscription',
+      mode:
+        data.session_type === 'one_time' ? 'payment' : 'subscription',
       line_items: [{ price: data.item_id, quantity: data.quantity }],
       success_url: data.success_url,
       cancel_url: data.cancel_url,
@@ -151,16 +157,6 @@ export class StripeProvider
       checkoutOptions.customer = String(params.customer.id);
     } else if (isEmailCustomer(params.customer)) {
       checkoutOptions.customer_email = params.customer.email;
-    } else {
-      throw new InvalidTypeError(
-        'customer',
-        'object with email or id',
-        'object',
-        {
-          provider: this.providerName,
-          method: 'createCheckout',
-        },
-      );
     }
 
     if (params.billing) {
@@ -194,9 +190,12 @@ export class StripeProvider
   };
 
   retrieveCheckout = async (id: string): Promise<Checkout> => {
-    const checkout = await this.stripe.checkout.sessions.retrieve(id, {
-      expand: ['line_items'],
-    });
+    const checkout = await this.stripe.checkout.sessions.retrieve(
+      id,
+      {
+        expand: ['line_items'],
+      },
+    );
 
     return Checkout$inboundSchema(
       checkout,
@@ -221,18 +220,24 @@ export class StripeProvider
       );
     }
 
-    const originalCheckout = await this.stripe.checkout.sessions.retrieve(id, {
-      expand: ['line_items'],
-    });
+    const originalCheckout =
+      await this.stripe.checkout.sessions.retrieve(id, {
+        expand: ['line_items'],
+      });
 
     if (!originalCheckout) {
-      throw new ResourceNotFoundError('checkout', id, this.providerName);
+      throw new ResourceNotFoundError(
+        'checkout',
+        id,
+        this.providerName,
+      );
     }
 
-    const updatedCheckout = await this.stripe.checkout.sessions.update(id, {
-      ...data,
-      metadata: stringifyMetadataValues(data.metadata ?? {}),
-    });
+    const updatedCheckout =
+      await this.stripe.checkout.sessions.update(id, {
+        ...data,
+        metadata: stringifyMetadataValues(data.metadata ?? {}),
+      });
 
     return Checkout$inboundSchema(
       updatedCheckout,
@@ -310,7 +315,8 @@ export class StripeProvider
   createSubscription = async (
     params: CreateSubscriptionSchema<StripeMetadata['subscription']>,
   ): Promise<Subscription> => {
-    const { error, data } = createSubscriptionSchema.safeParse(params);
+    const { error, data } =
+      createSubscriptionSchema.safeParse(params);
 
     if (error) {
       throw ValidationError.fromZodError(
@@ -320,7 +326,10 @@ export class StripeProvider
       );
     }
 
-    if (!isEmailCustomer(data.customer) && !isIdCustomer(data.customer)) {
+    if (
+      !isEmailCustomer(data.customer) &&
+      !isIdCustomer(data.customer)
+    ) {
       throw new InvalidTypeError(
         'customer',
         'object with email or id',
@@ -367,7 +376,8 @@ export class StripeProvider
     id: string,
     params: UpdateSubscriptionSchema<StripeMetadata['subscription']>,
   ): Promise<Subscription> => {
-    const { error, data } = updateSubscriptionSchema.safeParse(params);
+    const { error, data } =
+      updateSubscriptionSchema.safeParse(params);
 
     if (error) {
       throw ValidationError.fromZodError(
@@ -377,15 +387,18 @@ export class StripeProvider
       );
     }
 
-    const updatedSubscription = await this.stripe.subscriptions.update(id, {
-      ...(data.provider_metadata && { ...data.provider_metadata }),
-      metadata: stringifyMetadataValues(data.metadata ?? {}),
-    });
+    const updatedSubscription =
+      await this.stripe.subscriptions.update(id, {
+        ...(data.provider_metadata && { ...data.provider_metadata }),
+        metadata: stringifyMetadataValues(data.metadata ?? {}),
+      });
 
     return Subscription$inboundSchema(updatedSubscription);
   };
 
-  retrieveSubscription = async (id: string): Promise<Subscription> => {
+  retrieveSubscription = async (
+    id: string,
+  ): Promise<Subscription> => {
     const { error, data } = retrieveSubscriptionSchema.safeParse({
       id,
     });
@@ -398,7 +411,9 @@ export class StripeProvider
       );
     }
 
-    const subscription = await this.stripe.subscriptions.retrieve(data.id);
+    const subscription = await this.stripe.subscriptions.retrieve(
+      data.id,
+    );
 
     return Subscription$inboundSchema(subscription);
   };
@@ -432,7 +447,8 @@ export class StripeProvider
         method: 'createPayment',
       });
 
-    const { provider_metadata, customer, capture_method, ...rest } = data;
+    const { provider_metadata, customer, capture_method, ...rest } =
+      data;
 
     const createCheckoutSession = async (
       customerEmail?: string,
@@ -476,7 +492,8 @@ export class StripeProvider
       };
 
       if (customerId) checkoutOptions.customer = customerId;
-      else if (customerEmail) checkoutOptions.customer_email = customerEmail;
+      else if (customerEmail)
+        checkoutOptions.customer_email = customerEmail;
 
       const checkoutSession =
         await this.stripe.checkout.sessions.create(checkoutOptions);
@@ -535,8 +552,8 @@ export class StripeProvider
       });
     }
 
-    let defaultPaymentMethod = customerWithDefaultPaymentMethod.invoice_settings
-      ?.default_payment_method as string | undefined;
+    let defaultPaymentMethod = customerWithDefaultPaymentMethod
+      .invoice_settings?.default_payment_method as string | undefined;
 
     if (!defaultPaymentMethod) {
       const paymentMethods = await this.stripe.paymentMethods.list({
@@ -587,8 +604,9 @@ export class StripeProvider
       };
     }
 
-    const payment =
-      await this.stripe.paymentIntents.create(paymentIntentOptions);
+    const payment = await this.stripe.paymentIntents.create(
+      paymentIntentOptions,
+    );
     return Payment$inboundSchema(payment);
   };
 
@@ -706,7 +724,8 @@ export class StripeProvider
   };
 
   cancelPayment = async (id: string): Promise<Payment> => {
-    const canceledPayment = await this.stripe.paymentIntents.cancel(id);
+    const canceledPayment =
+      await this.stripe.paymentIntents.cancel(id);
 
     return Payment$inboundSchema(canceledPayment);
   };
@@ -731,7 +750,10 @@ export class StripeProvider
 
     const reason = refundReasonMatcher(rest.reason ?? '');
 
-    const reasonMap: Record<string, Stripe.RefundCreateParams.Reason> = {
+    const reasonMap: Record<
+      string,
+      Stripe.RefundCreateParams.Reason
+    > = {
       duplicate: 'duplicate',
       fraudulent: 'fraudulent',
       requested_by_customer: 'requested_by_customer',
@@ -751,7 +773,9 @@ export class StripeProvider
       stripeRefundOptions.charge = data.payment_id; // charge ID (legacy API)
     }
 
-    const refund = await this.stripe.refunds.create(stripeRefundOptions);
+    const refund = await this.stripe.refunds.create(
+      stripeRefundOptions,
+    );
 
     return Refund$inboundSchema(refund);
   };
@@ -793,7 +817,9 @@ export class StripeProvider
     const webhookHandlers: Partial<
       Record<
         StripeEventLiteral,
-        (event: Stripe.Event) => Promise<Array<WebhookEventPayload> | null>
+        (
+          event: Stripe.Event,
+        ) => Promise<Array<WebhookEventPayload> | null>
       >
     > = {
       /**
@@ -925,7 +951,9 @@ export class StripeProvider
       /**
        * Subscription
        */
-      'customer.subscription.created': async (event: Stripe.Event) => {
+      'customer.subscription.created': async (
+        event: Stripe.Event,
+      ) => {
         const data = event.data.object as Stripe.Subscription;
 
         const subscription = Subscription$inboundSchema(data);
@@ -940,7 +968,9 @@ export class StripeProvider
         ];
       },
 
-      'customer.subscription.updated': async (event: Stripe.Event) => {
+      'customer.subscription.updated': async (
+        event: Stripe.Event,
+      ) => {
         const data = event.data.object as Stripe.Subscription;
 
         const subscription = Subscription$inboundSchema(data);
@@ -955,7 +985,9 @@ export class StripeProvider
         ];
       },
 
-      'customer.subscription.deleted': async (event: Stripe.Event) => {
+      'customer.subscription.deleted': async (
+        event: Stripe.Event,
+      ) => {
         const subscription = null;
 
         return [
@@ -1057,7 +1089,9 @@ export class StripeProvider
   ): Promise<Array<WebhookEventPayload<StripeRawEvents>>> => {
     const { body, headersAsObject } = params;
 
-    const stripeSignature = headersAsObject['stripe-signature'] as string;
+    const stripeSignature = headersAsObject[
+      'stripe-signature'
+    ] as string;
 
     if (!stripeSignature) {
       throw new WebhookError('Missing Stripe signature', {
@@ -1083,7 +1117,9 @@ export class StripeProvider
 
     const processStandardMapping = async (
       ev: Stripe.Event,
-    ): Promise<Array<WebhookEventPayload<StripeRawEvents>> | null> => {
+    ): Promise<Array<
+      WebhookEventPayload<StripeRawEvents>
+    > | null> => {
       switch (ev.type) {
         case 'checkout.session.completed': {
           const data = ev.data.object as Stripe.Checkout.Session;
@@ -1166,7 +1202,9 @@ export class StripeProvider
               type: 'customer.created',
               created: ev.created,
               id: ev.id,
-              data: Customer$inboundSchema(ev.data.object as Stripe.Customer),
+              data: Customer$inboundSchema(
+                ev.data.object as Stripe.Customer,
+              ),
             }),
           ];
 
@@ -1176,7 +1214,9 @@ export class StripeProvider
               type: 'customer.updated',
               created: ev.created,
               id: ev.id,
-              data: Customer$inboundSchema(ev.data.object as Stripe.Customer),
+              data: Customer$inboundSchema(
+                ev.data.object as Stripe.Customer,
+              ),
             }),
           ];
 
@@ -1271,7 +1311,9 @@ export class StripeProvider
               type: 'refund.created',
               created: ev.created,
               id: ev.id,
-              data: Refund$inboundSchema(ev.data.object as Stripe.Refund),
+              data: Refund$inboundSchema(
+                ev.data.object as Stripe.Refund,
+              ),
             }),
           ];
 

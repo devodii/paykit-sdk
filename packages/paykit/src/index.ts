@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PayKitProvider } from './paykit-provider';
+import { providerSchema } from './provider-schema';
 import { Webhook, WebhookSetupConfig } from './webhook-provider';
 
 export const PAYKIT_METADATA_KEY = '__paykit';
@@ -9,7 +10,9 @@ export const PAYKIT_METADATA_KEY = '__paykit';
  * @template TNative - The type of the underlying native SDK client
  */
 class PayKit<P extends PayKitProvider<any, any, any>> {
-  constructor(private provider: P) {}
+  constructor(private provider: P) {
+    providerSchema.parse(provider);
+  }
 
   /**
    * Access the underlying native SDK (e.g., Stripe, Adyen) directly
@@ -127,7 +130,7 @@ export * from './webhook-provider';
 export * from './http-client';
 export * from './error';
 export * from './paykit-provider';
-export * from './provider-shema';
+export * from './provider-schema';
 export * from './server/create-endpoint-handler';
 export * from './server/endpoints';
 export * from './oauth2-token-manager';
