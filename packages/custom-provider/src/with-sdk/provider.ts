@@ -180,7 +180,7 @@ export class WithProviderSDK
 
   handleWebhook = (
     payload: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<WithProviderRawEvents>>> =>
     this._ni('handleWebhook');
 }

@@ -604,7 +604,7 @@ export class ComgateProvider
 
   handleWebhook = async (
     payload: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<ComgateRawEvents>>> => {
     const { body: rawBody, headersAsObject } = payload;
     let body: Record<string, unknown>;

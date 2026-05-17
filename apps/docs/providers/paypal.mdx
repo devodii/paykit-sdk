@@ -44,6 +44,24 @@ npm install @paykit-sdk/paypal
   </Tab>
 </Tabs>
 
+## How it works
+
+In PayPal, an **Order** is both the checkout and the payment. `createCheckout` and `createPayment` both create a PayPal order with `intent: CAPTURE`. The customer approves the order via PayPal's UI (redirect or JS SDK), then you capture it with `capturePayment(orderId)`.
+
+`PAYPAL_WEBHOOK_SECRET` is the **Webhook ID** from your PayPal dashboard — not a signing secret. PayPal verifies webhooks server-side by calling its own verification API using headers sent with the request.
+
+<Note>
+  PayPal does not support standalone customer management. `createCustomer`,
+  `updateCustomer`, `deleteCustomer`, and `retrieveCustomer` all throw
+  `ProviderNotSupportedError`. Use `payer` information within orders instead.
+</Note>
+
+<Warning>
+  PayPal metadata is stored as the order's `customId` (JSON-stringified). The
+  combined length of all metadata keys and values must not exceed **127
+  characters** after JSON serialization.
+</Warning>
+
 ## Webhooks
 
 Enable these events in your PayPal dashboard:
@@ -61,12 +79,24 @@ Enable these events in your PayPal dashboard:
 
 ```typescript
 const webhook = paykit.webhooks
-  .setup({ webhookSecret: process.env.PAYPAL_WEBHOOK_SECRET! })
+  .setup({ webhookSecret: process.env.PAYPAL_WEBHOOK_SECRET! }) // Webhook ID from dashboard
   .on('payment.created', async event => {
-    /* ... */
+    /* CHECKOUT.ORDER.APPROVED */
+  })
+  .on('payment.updated', async event => {
+    /* CHECKOUT.ORDER.COMPLETED or PAYMENT.CAPTURE.COMPLETED */
+  })
+  .on('refund.created', async event => {
+    /* PAYMENT.CAPTURE.REFUNDED */
   })
   .on('subscription.created', async event => {
-    /* ... */
+    /* BILLING.SUBSCRIPTION.CREATED */
+  })
+  .on('subscription.updated', async event => {
+    /* BILLING.SUBSCRIPTION.UPDATED / ACTIVATED / SUSPENDED */
+  })
+  .on('subscription.canceled', async event => {
+    /* BILLING.SUBSCRIPTION.CANCELLED / EXPIRED */
   });
 
 await webhook.handle({
@@ -78,10 +108,68 @@ await webhook.handle({
 
 ### Raw PayPal events
 
+Opt into any native PayPal event — typed against the full PayPal event catalog:
+
 ```typescript
 paykit.webhooks
   .setup({ webhookSecret: process.env.PAYPAL_WEBHOOK_SECRET! })
-  .on('paypal.PAYMENT.SALE.COMPLETED', async event => {
-    // typed against PayPal's API types
+  .on('paypal.PAYMENT.CAPTURE.COMPLETED', async event => {
+    // event.data is typed as PayPalWebhookEvent<'PAYMENT.CAPTURE.COMPLETED'>
+  })
+  .on('paypal.BILLING.SUBSCRIPTION.PAYMENT.FAILED', async event => {
+    // event.data is typed as PayPalWebhookEvent<'BILLING.SUBSCRIPTION.PAYMENT.FAILED', PayPalSubscription>
   });
+```
+
+All available raw events:
+
+| PayPal event                                    | PayKit event emitted        |
+| ----------------------------------------------- | --------------------------- |
+| `paypal.CHECKOUT.ORDER.APPROVED`                | `payment.created`           |
+| `paypal.CHECKOUT.ORDER.COMPLETED`               | `payment.updated`           |
+| `paypal.PAYMENT.CAPTURE.COMPLETED`              | `payment.updated`           |
+| `paypal.PAYMENT.CAPTURE.REFUNDED`               | `refund.created`            |
+| `paypal.BILLING.SUBSCRIPTION.CREATED`           | `subscription.created`      |
+| `paypal.BILLING.SUBSCRIPTION.UPDATED`           | `subscription.updated`      |
+| `paypal.BILLING.SUBSCRIPTION.ACTIVATED`         | `subscription.updated`      |
+| `paypal.BILLING.SUBSCRIPTION.SUSPENDED`         | `subscription.updated`      |
+| `paypal.BILLING.SUBSCRIPTION.CANCELLED`         | `subscription.canceled`     |
+| `paypal.BILLING.SUBSCRIPTION.EXPIRED`           | `subscription.canceled`     |
+| `paypal.PAYMENT.AUTHORIZATION.CREATED`          | _(raw only)_                |
+| `paypal.PAYMENT.AUTHORIZATION.VOIDED`           | _(raw only)_                |
+| `paypal.PAYMENT.CAPTURE.DECLINED`               | _(raw only)_                |
+| `paypal.PAYMENT.CAPTURE.PENDING`                | _(raw only)_                |
+| `paypal.PAYMENT.CAPTURE.REVERSED`               | _(raw only)_                |
+| `paypal.PAYMENT.REFUND.PENDING`                 | _(raw only)_                |
+| `paypal.PAYMENT.REFUND.FAILED`                  | _(raw only)_                |
+| `paypal.BILLING.SUBSCRIPTION.PAYMENT.FAILED`    | _(raw only)_                |
+| `paypal.CUSTOMER.DISPUTE.CREATED`               | _(raw only)_                |
+| `paypal.CUSTOMER.DISPUTE.RESOLVED`              | _(raw only)_                |
+| `paypal.CUSTOMER.DISPUTE.UPDATED`               | _(raw only)_                |
+
+## provider_metadata
+
+`createCheckout` requires `currency`, `amount`, and `itemName` in `provider_metadata` because PayPal orders need explicit line-item data:
+
+```typescript
+// checkout.provider_metadata — currency, amount, and itemName are required
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'sku_abc123',
+  session_type: 'one_time',
+  quantity: 2,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    currency: 'USD',      // required
+    amount: '29.00',      // required — total order amount as string
+    itemName: 'T-Shirt',  // required — display name shown in PayPal UI
+  },
+});
+
+// refunds — amount is optional (defaults to full capture amount)
+await paykit.refunds.create({
+  payment_id: 'order_abc123',
+  amount: 1000, // in currency units (e.g. cents)
+});
 ```

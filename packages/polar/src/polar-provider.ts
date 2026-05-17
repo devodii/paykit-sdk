@@ -47,6 +47,7 @@ import {
   parseCustomerName,
   isEmailCustomer,
   isIdCustomer,
+  WebhookError,
 } from '@paykit-sdk/core';
 import { Polar, SDKOptions, ServerList } from '@polar-sh/sdk';
 import { CountryAlpha2Input } from '@polar-sh/sdk/models/components/addressinput.js';
@@ -634,8 +635,15 @@ export class PolarProvider
 
   handleWebhook = async (
     params: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<PolarRawEvents>>> => {
+    if (!webhookSecret) {
+      throw new WebhookError(
+        'webhookSecret is required for Polar webhook verification',
+        { provider: this.providerName },
+      );
+    }
+
     const { body, headersAsObject } = params;
 
     const webhookId = (headersAsObject['webhook-id'] || '') as string;

@@ -43,16 +43,36 @@ npm install @paykit-sdk/comgate
   </Tab>
 </Tabs>
 
+## How it works
+
+Comgate authenticates via HTTP Basic (merchant ID + secret, base64-encoded). `createCheckout` calls `POST /v2.0/paymentRedirect/merchant/{merchant}` and redirects the user to Comgate's hosted payment page — the returned checkout object is `null` because the redirect is handled automatically. After payment, Comgate posts a webhook with the transaction status.
+
+`createPayment` (non-hosted) calls `POST /v2.0/payment` and requires the customer to be identified by `id`. Currency defaults to `CZK` if not set.
+
+<Warning>
+  Comgate does not support customers, subscriptions, or updating
+  checkouts/payments. It also does not support retrieving checkouts —
+  use `retrievePayment` to look up transaction status instead.
+</Warning>
+
 ## Webhooks
+
+Comgate sends a POST with `merchant`, `secret`, `transId`, and `status` fields in the body. PayKit verifies the secret and merchant ID directly, then calls `/v1.0/status` to confirm the transaction status server-side.
 
 ```typescript
 const webhook = paykit.webhooks
-  .setup({ webhookSecret: process.env.COMGATE_WEBHOOK_SECRET! })
+  .setup({ webhookSecret: process.env.COMGATE_SECRET! })
   .on('payment.created', async event => {
-    /* ... */
+    /* PAID or PENDING transaction */
   })
   .on('payment.updated', async event => {
-    /* ... */
+    /* AUTHORIZED (pre-auth, awaiting capture) */
+  })
+  .on('payment.canceled', async event => {
+    /* CANCELLED transaction */
+  })
+  .on('invoice.generated', async event => {
+    /* emitted alongside payment.created on PAID */
   });
 
 await webhook.handle({
@@ -62,12 +82,57 @@ await webhook.handle({
 });
 ```
 
+Comgate statuses and their PayKit event mappings:
+
+| Comgate status | PayKit events emitted                      |
+| -------------- | ------------------------------------------ |
+| `PAID`         | `payment.created` + `invoice.generated`    |
+| `PENDING`      | `payment.created`                          |
+| `AUTHORIZED`   | `payment.updated`                          |
+| `CANCELLED`    | `payment.canceled`                         |
+
 ### Raw Comgate events
+
+Comgate webhooks carry a `status` field rather than named event types. You can listen for the raw status values via the `comgate.*` namespace:
 
 ```typescript
 paykit.webhooks
-  .setup({ webhookSecret: process.env.COMGATE_WEBHOOK_SECRET! })
-  .on('comgate.payment_paid', async event => {
-    // typed against Comgate's API types
+  .setup({ webhookSecret: process.env.COMGATE_SECRET! })
+  .on('comgate.PAID', async event => {
+    // event.data is the verified Comgate status response
+  })
+  .on('comgate.CANCELLED', async event => {
+    /* ... */
   });
+```
+
+## provider_metadata
+
+```typescript
+// checkout.provider_metadata — label is optional (defaults to "Order from Eshop")
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  amount: 2900,
+  currency: 'CZK',
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    label: 'Order #1234',
+  },
+});
+
+// payment.provider_metadata — email is required; paymentLabel is optional
+await paykit.payments.create({
+  customer: { id: 'payer-42' },
+  item_id: 'my-product',
+  amount: 2900,
+  currency: 'CZK',
+  provider_metadata: {
+    email: 'user@example.com',        // required
+    paymentLabel: 'Order from Eshop', // optional
+  },
+});
 ```

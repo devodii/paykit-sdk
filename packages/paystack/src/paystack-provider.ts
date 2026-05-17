@@ -636,8 +636,15 @@ export class PaystackProvider
 
   handleWebhook = async (
     payload: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<PaystackRawEvents>>> => {
+    if (!webhookSecret) {
+      throw new WebhookError(
+        'webhookSecret is required for Paystack webhook verification',
+        { provider: this.providerName },
+      );
+    }
+
     const { body, headersAsObject } = payload;
 
     const signature = headersAsObject['x-paystack-signature'];

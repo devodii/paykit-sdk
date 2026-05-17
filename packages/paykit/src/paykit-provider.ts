@@ -109,7 +109,7 @@ export interface PayKitProvider<
   /** Webhook */
   handleWebhook(
     payload: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<TRawEvents>>>;
 }
 

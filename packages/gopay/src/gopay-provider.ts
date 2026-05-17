@@ -922,7 +922,7 @@ export class GoPayProvider
 
   handleWebhook = async (
     payload: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<GoPayRawEvents>>> => {
     const { fullUrl } = payload;
 

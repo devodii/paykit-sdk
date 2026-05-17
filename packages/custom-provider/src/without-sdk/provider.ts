@@ -314,7 +314,7 @@ export class WithoutProviderSDK
 
   handleWebhook = async (
     payload: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<
     Array<WebhookEventPayload<WithoutProviderRawEvents>>
   > => {

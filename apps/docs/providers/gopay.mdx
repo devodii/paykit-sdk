@@ -47,43 +47,125 @@ npm install @paykit-sdk/gopay
   </Tab>
 </Tabs>
 
-## Webhooks
+## How it works
+
+GoPay authenticates using OAuth 2.0 client credentials (`scope=payment-all`). `createCheckout` calls `POST /payments/payment` and returns a `gw_url` that the customer is redirected to. After the customer pays, GoPay calls your `webhookUrl` via GET with a `?id=<paymentId>` query parameter. The handler fetches the payment state from GoPay to verify it.
+
+Subscriptions (recurring payments) are created as an initial payment with a `recurrence` object. Subsequent charges are triggered automatically by GoPay or on demand via GoPay's `createRecurrence` API.
 
 <Warning>
   GoPay sends webhook notifications via GET requests. Your handler
   must accept GET, not POST.
 </Warning>
 
+<Warning>
+  GoPay does not support customer management. `createCustomer`,
+  `retrieveCustomer`, `updateCustomer`, and `deleteCustomer` all throw
+  `ProviderNotSupportedError`.
+</Warning>
+
+## Webhooks
+
 ```typescript
 const webhook = paykit.webhooks
   .setup({ webhookSecret: '' }) // GoPay does not use a shared secret
   .on('payment.created', async event => {
-    /* ... */
+    /* CREATED or PAID state */
+  })
+  .on('payment.updated', async event => {
+    /* PAYMENT_METHOD_CHOSEN or AUTHORIZED state */
+  })
+  .on('payment.canceled', async event => {
+    /* CANCELED or TIMEOUTED state */
+  })
+  .on('invoice.generated', async event => {
+    /* emitted alongside payment.created on PAID */
+  })
+  .on('subscription.created', async event => {
+    /* emitted on PAID when the payment has a parent_id (recurring charge) */
+  })
+  .on('subscription.canceled', async event => {
+    /* emitted when recurrence state is STOPPED */
+  })
+  .on('refund.created', async event => {
+    /* REFUNDED or PARTIALLY_REFUNDED state */
   });
 
 await webhook.handle({
   body: '',
   headersAsObject: Object.fromEntries(request.headers),
-  fullUrl: request.url, // GoPay passes the payment ID as a query param
+  fullUrl: request.url, // GoPay passes the payment ID as ?id= query param
 });
 ```
 
+GoPay payment states and their PayKit event mappings:
+
+| GoPay state              | PayKit events emitted                                              |
+| ------------------------ | ------------------------------------------------------------------ |
+| `CREATED`                | `payment.created`                                                  |
+| `PAYMENT_METHOD_CHOSEN`  | `payment.updated`                                                  |
+| `PAID`                   | `payment.created` + `invoice.generated` (+ `subscription.created` if recurring) |
+| `AUTHORIZED`             | `payment.updated`                                                  |
+| `CANCELED`               | `payment.canceled` (+ `subscription.canceled` if recurrence STOPPED) |
+| `TIMEOUTED`              | `payment.canceled`                                                 |
+| `REFUNDED`               | `refund.created`                                                   |
+| `PARTIALLY_REFUNDED`     | `refund.created`                                                   |
+
+## Subscriptions
+
+GoPay maps PayKit billing intervals to its `recurrence_cycle` field:
+
+| PayKit `billing_interval` | GoPay `recurrence_cycle` |
+| ------------------------- | ------------------------- |
+| `day`                     | `DAY`                     |
+| `week`                    | `WEEK`                    |
+| `month`                   | `MONTH`                   |
+| `year`                    | `ON_DEMAND`               |
+| `custom`                  | `ON_DEMAND`               |
+
+`year` and `custom` intervals fall back to `ON_DEMAND` — GoPay does not natively support them. You must trigger each charge manually via GoPay's `createRecurrence` API.
+
 ## provider_metadata
 
-GoPay requires `amount` and `currency` in `provider_metadata` on checkout:
+GoPay requires `amount` and `currency` in `provider_metadata` for checkout, and `success_url` for direct payments and subscriptions:
 
 ```typescript
+// checkout.provider_metadata — amount is required, currency defaults to CZK, language defaults to EN
 await paykit.checkouts.create({
   customer: { email: 'user@example.com' },
   item_id: 'my-product',
   session_type: 'one_time',
   quantity: 1,
-  success_url: '...',
-  cancel_url: '...',
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
   provider_metadata: {
     amount: '2900',
     currency: 'CZK',
-    lang: 'en',
+    language: 'en', // optional, defaults to 'EN'
+  },
+});
+
+// payment.provider_metadata — success_url is required
+await paykit.payments.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  amount: 2900,
+  currency: 'CZK',
+  provider_metadata: {
+    success_url: 'https://example.com/success', // required
+  },
+});
+
+// subscription.provider_metadata — success_url is required
+await paykit.subscriptions.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-plan',
+  amount: 2900,
+  currency: 'CZK',
+  billing_interval: 'month',
+  provider_metadata: {
+    success_url: 'https://example.com/success', // required
+    description: 'Monthly plan',               // optional
   },
 });
 ```

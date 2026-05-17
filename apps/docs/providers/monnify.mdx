@@ -43,26 +43,31 @@ npm install @paykit-sdk/monnify
   </Tab>
 </Tabs>
 
+## How it works
+
+Monnify uses OAuth 2.0 client credentials (API key + secret key) to obtain a short-lived access token before every API call. `createCheckout` calls `POST /v1/merchant/transactions/init-transaction` and returns a `checkoutUrl`. After payment, retrieve the transaction status with `retrievePayment(transactionReference)`. Amounts are in the standard currency unit (e.g. Naira for NGN).
+
+<Warning>
+  Monnify does not support customer management, subscriptions, or direct
+  payment creation. Use `createCheckout` and `retrievePayment` for the
+  core payment flow.
+</Warning>
+
 ## Webhooks
 
-Enable these events in your Monnify dashboard:
-
-- `SUCCESSFUL_TRANSACTION`
-- `SUCCESSFUL_TRANSACTION_OFFLINE`
-- `REJECTED_PAYMENT`
-- `SETTLEMENT`
-- `MANDATE_UPDATE`
-- `SUCCESSFUL_REFUND`
-- `FAILED_REFUND`
+Monnify signs webhook payloads with HMAC-SHA512 via the `monnify-signature` header. Add a webhook endpoint in your Monnify dashboard that points to your handler.
 
 ```typescript
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.MONNIFY_WEBHOOK_SECRET! })
   .on('payment.created', async event => {
-    /* ... */
+    /* transaction completed successfully */
   })
   .on('payment.updated', async event => {
-    /* ... */
+    /* settlement or rejected payment */
+  })
+  .on('refund.created', async event => {
+    /* refund succeeded or failed */
   });
 
 await webhook.handle({
@@ -74,10 +79,60 @@ await webhook.handle({
 
 ### Raw Monnify events
 
+Opt into any native Monnify event type — typed against Monnify's API payload:
+
 ```typescript
 paykit.webhooks
   .setup({ webhookSecret: process.env.MONNIFY_WEBHOOK_SECRET! })
   .on('monnify.SUCCESSFUL_TRANSACTION', async event => {
-    // typed against Monnify's API types
+    // event.data is the raw Monnify transaction payload
+  })
+  .on('monnify.MANDATE_UPDATE', async event => {
+    // event.data is the raw Monnify mandate payload
   });
+```
+
+All available raw events and their PayKit mappings:
+
+| Raw event                        | PayKit event          |
+| -------------------------------- | --------------------- |
+| `monnify.SUCCESSFUL_TRANSACTION` | `payment.created`     |
+| `monnify.SUCCESSFUL_TRANSACTION_OFFLINE` | `payment.created` |
+| `monnify.REJECTED_PAYMENT`       | `payment.updated`     |
+| `monnify.SETTLEMENT`             | `payment.updated`     |
+| `monnify.SUCCESSFUL_REFUND`      | `refund.created`      |
+| `monnify.FAILED_REFUND`          | `refund.created`      |
+| `monnify.MANDATE_UPDATE`         | `subscription.created` / `subscription.canceled` / `subscription.updated` |
+| `monnify.CUSTOMER_CREATED`       | _(ignored)_           |
+| `monnify.CUSTOMER_UPDATED`       | _(ignored)_           |
+| `monnify.CUSTOMER_DELETED`       | _(ignored)_           |
+| `monnify.SUCCESSFUL_DISBURSEMENT` | _(ignored)_          |
+| `monnify.FAILED_DISBURSEMENT`    | _(ignored)_           |
+| `monnify.REVERSED_DISBURSEMENT`  | _(ignored)_           |
+
+## provider_metadata
+
+`amount` and `currency` are required in `provider_metadata` for checkout because Monnify does not infer them from the plan or item:
+
+```typescript
+// checkout.provider_metadata requires amount and currency
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    amount: 5000,    // in the standard currency unit (e.g. Naira)
+    currency: 'NGN',
+  },
+});
+
+// refund.provider_metadata — any extra fields are forwarded to Monnify's refund endpoint
+await paykit.refunds.create({
+  payment_id: 'MNFY|...',
+  amount: 1000,
+  reason: 'Customer request',
+});
 ```

@@ -782,8 +782,15 @@ export class StripeProvider
 
   handleWebhook1 = async (
     params: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload>> => {
+    if (!webhookSecret) {
+      throw new WebhookError(
+        'webhookSecret is required for Stripe webhook verification',
+        { provider: this.providerName },
+      );
+    }
+
     const { body, headersAsObject } = params;
 
     const headers = new Headers(headersAsObject);
@@ -1085,8 +1092,15 @@ export class StripeProvider
 
   handleWebhook = async (
     params: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<StripeRawEvents>>> => {
+    if (!webhookSecret) {
+      throw new WebhookError(
+        'webhookSecret is required for Stripe webhook verification',
+        { provider: this.providerName },
+      );
+    }
+
     const { body, headersAsObject } = params;
 
     const stripeSignature = headersAsObject[

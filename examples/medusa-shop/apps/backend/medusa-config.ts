@@ -28,7 +28,6 @@ module.exports = defineConfig({
             id: 'gopay',
             options: {
               provider: gopay(),
-              webhookSecret: process.env.GOPAY_WEBHOOK_SECRET!,
               debug: true,
             },
           },

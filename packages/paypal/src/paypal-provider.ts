@@ -643,8 +643,15 @@ export class PayPalProvider
 
   handleWebhook = async (
     params: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<PayPalRawEvents>>> => {
+    if (!webhookSecret) {
+      throw new WebhookError(
+        'webhookSecret is required for PayPal webhook verification',
+        { provider: this.providerName },
+      );
+    }
+
     const { body, headersAsObject } = params;
 
     const { result } = await this.webhookController.verifyWebhook({

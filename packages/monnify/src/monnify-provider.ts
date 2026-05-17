@@ -551,8 +551,15 @@ export class MonnifyProvider
 
   handleWebhook = async (
     payload: WebhookHandlerConfig,
-    webhookSecret: string,
+    webhookSecret: string | null,
   ): Promise<Array<WebhookEventPayload<MonnifyRawEvents>>> => {
+    if (!webhookSecret) {
+      throw new WebhookError(
+        'webhookSecret is required for Monnify webhook verification',
+        { provider: this.providerName },
+      );
+    }
+
     const { body, headersAsObject } = payload;
 
     const receivedHash = headersAsObject['monnify-signature'];

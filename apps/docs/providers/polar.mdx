@@ -38,6 +38,12 @@ npm install @paykit-sdk/polar
   </Tab>
 </Tabs>
 
+## How it works
+
+Polar uses the official `@polar-sh/sdk` under the hood. Both `createPayment` and `createCheckout` create a Polar checkout session — the difference is that `createCheckout` is the hosted redirect flow. Polar auto-captures payments, so `capturePayment` simply returns the current payment state.
+
+Subscriptions are created through checkouts only — calling `createSubscription` directly throws `ProviderNotSupportedError`. When a customer purchases a subscription product via a checkout, Polar fires the `subscription.created` webhook event.
+
 ## Webhooks
 
 Enable these events in your Polar dashboard:
@@ -56,16 +62,34 @@ Enable these events in your Polar dashboard:
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.POLAR_WEBHOOK_SECRET! })
   .on('payment.created', async event => {
-    /* ... */
+    /* order.created */
+  })
+  .on('payment.updated', async event => {
+    /* order.paid */
   })
   .on('subscription.created', async event => {
-    /* ... */
+    /* subscription.created */
+  })
+  .on('subscription.updated', async event => {
+    /* subscription.updated */
+  })
+  .on('subscription.canceled', async event => {
+    /* subscription.revoked */
   })
   .on('customer.created', async event => {
-    /* ... */
+    /* customer.created */
+  })
+  .on('customer.updated', async event => {
+    /* customer.updated */
+  })
+  .on('customer.deleted', async event => {
+    /* customer.deleted */
+  })
+  .on('invoice.generated', async event => {
+    /* emitted alongside payment.updated on order.paid */
   })
   .on('refund.created', async event => {
-    /* ... */
+    /* refund.created */
   });
 
 await webhook.handle({
@@ -77,13 +101,78 @@ await webhook.handle({
 
 ### Raw Polar events
 
+Every incoming Polar event is also emitted as a `polar.<event.type>` raw event — typed via the `@polar-sh/sdk` webhook types:
+
 ```typescript
 paykit.webhooks
   .setup({ webhookSecret: process.env.POLAR_WEBHOOK_SECRET! })
   .on('polar.order.paid', async event => {
-    // typed against Polar's API types
+    // event.data is typed as Polar Order
   })
   .on('polar.subscription.revoked', async event => {
-    /* ... */
+    // event.data is typed as Polar Subscription
+  })
+  .on('polar.refund.created', async event => {
+    // event.data is typed as Polar Refund
   });
+```
+
+Polar event to PayKit event mappings:
+
+| Polar event                | PayKit events emitted                       |
+| -------------------------- | ------------------------------------------- |
+| `polar.order.created`      | `payment.created`                           |
+| `polar.order.paid`         | `payment.updated` + `invoice.generated`     |
+| `polar.customer.created`   | `customer.created`                          |
+| `polar.customer.updated`   | `customer.updated`                          |
+| `polar.customer.deleted`   | `customer.deleted`                          |
+| `polar.subscription.created` | `subscription.created`                    |
+| `polar.subscription.updated` | `subscription.updated`                    |
+| `polar.subscription.revoked` | `subscription.canceled`                   |
+| `polar.refund.created`     | `refund.created`                            |
+
+## provider_metadata
+
+`provider_metadata` for Polar is passed through directly to the underlying Polar SDK call, giving you full access to any field the Polar API accepts:
+
+```typescript
+// checkout.provider_metadata is spread into Polar's CheckoutCreate
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'product_abc123',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    allowDiscountCodes: true,
+    discountId: 'discount_xyz',
+  },
+});
+
+// customer.provider_metadata is spread into Polar's CustomerCreate / CustomerUpdate
+await paykit.customers.create({
+  email: 'user@example.com',
+  provider_metadata: {
+    externalId: 'usr_123',
+  },
+});
+
+// updateSubscription.provider_metadata is REQUIRED and must be one of these shapes:
+await paykit.subscriptions.update('sub_123', {
+  provider_metadata: { productId: 'product_456' },   // change product
+});
+await paykit.subscriptions.update('sub_123', {
+  provider_metadata: { discountId: 'discount_789' }, // apply discount
+});
+await paykit.subscriptions.update('sub_123', {
+  provider_metadata: { trialEnd: new Date('2025-12-31') }, // extend trial
+});
+
+// refund.provider_metadata is spread into Polar's refund create
+await paykit.refunds.create({
+  payment_id: 'order_abc123',
+  amount: 1000,
+  reason: 'customer_request',
+});
 ```

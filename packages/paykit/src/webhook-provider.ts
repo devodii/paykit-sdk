@@ -39,9 +39,9 @@ export type StandardWebhookEventType = keyof StandardEventHandlers;
 
 export type WebhookSetupConfig<TRaw extends Record<string, any>> = {
   /**
-   * The secret key for the webhook.
+   * The secret key for the webhook. Pass null for providers that do not use a shared secret.
    */
-  webhookSecret: string;
+  webhookSecret: string | null;
 
   /**
    * The provider for the webhook.

@@ -57,10 +57,9 @@ const optionsSchema = z.object({
   provider: providerSchema,
 
   /**
-   * The webhook secret for the provider
-   * Adds default because it is not required for all providers
+   * The webhook secret for the provider.
    */
-  webhookSecret: z.string().default(''),
+  webhookSecret: z.string().nullable().default(null),
 
   /**
    * Whether to enable debug mode
