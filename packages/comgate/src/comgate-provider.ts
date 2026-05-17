@@ -88,7 +88,7 @@ export class ComgateProvider
 {
   readonly providerName = providerName;
   private baseUrl: string;
-
+  readonly isSandbox: boolean;
   private _client: HTTPClient;
 
   constructor(private readonly opts: ComgateOptions) {
@@ -109,6 +109,7 @@ export class ComgateProvider
       },
       retryOptions: { max: 3, baseDelay: 1000, debug },
     });
+    this.isSandbox = opts.isSandbox;
   }
 
   get _native() {

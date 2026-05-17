@@ -95,6 +95,7 @@ export class PaystackProvider
   readonly providerName = providerName;
   private readonly _client: HTTPClient;
   private readonly opts: PaystackOptions;
+  readonly isSandbox: boolean;
 
   constructor(opts: PaystackOptions) {
     super(paystackOptionsSchema, opts, providerName);
@@ -113,6 +114,7 @@ export class PaystackProvider
         debug: opts.debug ?? false,
       },
     });
+    this.isSandbox = opts.isSandbox;
   }
 
   get _native() {

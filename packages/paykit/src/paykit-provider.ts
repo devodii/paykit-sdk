@@ -45,6 +45,8 @@ export interface PayKitProvider<
    */
   readonly providerName: string;
 
+  readonly isSandbox: boolean;
+
   /**
    * ESCAPE HATCH: Access the underlying SDK (Stripe, Adyen, etc.) directly.
    * This allows devs to use features we haven't mapped yet without leaving the ecosystem.

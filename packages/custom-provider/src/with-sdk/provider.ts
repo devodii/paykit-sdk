@@ -71,10 +71,13 @@ export class WithProviderSDK
   readonly providerName = providerName;
   private sdk: SomeProviderSDK | null = null;
 
+  readonly isSandbox: boolean;
+
   constructor(private readonly opts: WithProviderSDKOptions) {
     super(withProviderSDKOptionsSchema, opts, providerName);
 
     this.sdk = new SomeProviderSDK(opts.apiKey);
+    this.isSandbox = opts.isSandbox;
   }
 
   private _ni(m: string): Promise<never> {

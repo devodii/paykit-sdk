@@ -77,9 +77,11 @@ export class WithoutProviderSDK
 {
   private _client: HTTPClient;
   readonly providerName = providerName;
-
+  readonly isSandbox: boolean;
   constructor(protected readonly opts: WithoutProviderSDKOptions) {
     super(withoutProviderSDKOptionsSchema, opts, providerName);
+
+    this.isSandbox = opts.isSandbox;
 
     this._client = new HTTPClient({
       baseUrl: opts.isSandbox

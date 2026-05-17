@@ -101,6 +101,8 @@ export class StripeProvider
   private stripe: Stripe;
   private opts: StripeOptions;
 
+  readonly isSandbox: boolean;
+
   constructor(opts: StripeOptions) {
     super(StripeOptions$inboundSchema, opts, providerName);
 
@@ -108,6 +110,7 @@ export class StripeProvider
 
     this.stripe = new Stripe(apiKey, rest);
     this.opts = opts;
+    this.isSandbox = opts.isSandbox;
   }
 
   readonly providerName = providerName;

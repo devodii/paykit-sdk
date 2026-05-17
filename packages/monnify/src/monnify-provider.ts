@@ -80,7 +80,7 @@ export class MonnifyProvider
   implements PayKitProvider<MonnifyMetadata, null, MonnifyRawEvents>
 {
   readonly providerName = providerName;
-
+  readonly isSandbox: boolean;
   private _client: HTTPClient;
   private baseUrl: string;
 
@@ -121,6 +121,7 @@ export class MonnifyProvider
       }),
       expiryBuffer: 5 * 60, // 5 minutes
     });
+    this.isSandbox = opts.isSandbox;
   }
 
   /**

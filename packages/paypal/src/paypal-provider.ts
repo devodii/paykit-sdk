@@ -88,7 +88,7 @@ export class PayPalProvider
   implements PayKitProvider<PayPalMetadata, Client, PayPalRawEvents>
 {
   readonly providerName = providerName;
-
+  readonly isSandbox: boolean;
   get _native() {
     return this.client;
   }
@@ -133,6 +133,7 @@ export class PayPalProvider
       this.client,
     );
     this.webhookController = new WebhookController(this.client);
+    this.isSandbox = isSandbox;
   }
 
   /**

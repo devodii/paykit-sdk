@@ -110,6 +110,8 @@ export class GoPayProvider
   private _client: HTTPClient;
   private baseUrl: string;
 
+  readonly isSandbox: boolean;
+
   private tokenManager: OAuth2TokenManager;
 
   get _native() {
@@ -118,6 +120,8 @@ export class GoPayProvider
 
   constructor(private readonly opts: GoPayOptions) {
     super(gopayOptionsSchema, opts, providerName);
+
+    this.isSandbox = opts.isSandbox;
 
     const debug = opts.debug ?? true;
 

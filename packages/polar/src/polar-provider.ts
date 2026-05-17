@@ -109,6 +109,8 @@ export class PolarProvider
   private polar: Polar;
   private refunds: Refunds;
 
+  readonly isSandbox: boolean;
+
   private readonly productionURL = ServerList['production'];
   private readonly sandboxURL = ServerList['sandbox'];
 
@@ -123,6 +125,7 @@ export class PolarProvider
 
     this.polar = new Polar({ accessToken, serverURL, ...rest });
     this.refunds = new Refunds({ accessToken, serverURL, ...rest });
+    this.isSandbox = isSandbox;
   }
 
   get _native() {
