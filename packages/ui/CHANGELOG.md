@@ -1,5 +1,11 @@
 # @paykit-sdk/ui
 
+## 0.1.13
+
+### Patch Changes
+
+- 1c727ff: fix: make webhooksecret and customer phone nullable, medusa adapter improvements and more
+
 ## 0.1.12
 
 ### Patch Changes
