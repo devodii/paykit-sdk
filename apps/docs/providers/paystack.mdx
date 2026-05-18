@@ -67,7 +67,10 @@ Paystack signs webhooks with HMAC-SHA512 via the `x-paystack-signature` header.
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.PAYSTACK_WEBHOOK_SECRET! })
   .on('payment.created', async event => {
-    /* ... */
+    /* charge.success */
+  })
+  .on('payment.failed', async event => {
+    /* charge.failed or invoice.payment_failed */
   })
   .on('subscription.created', async event => {
     /* ... */

@@ -36,7 +36,7 @@ export const monnifyToPaykitEventMap: Record<
 
   SUCCESSFUL_TRANSACTION: 'payment.created',
 
-  REJECTED_PAYMENT: 'payment.updated',
+  REJECTED_PAYMENT: 'payment.failed',
 
   SETTLEMENT: 'payment.updated',
 

@@ -740,7 +740,7 @@ export class ComgateProvider
 
         return [
           paykitEvent$InboundSchema<Payment>({
-            type: 'payment.canceled',
+            type: 'payment.failed',
             created: new Date().getTime(),
             id: `paykit:payment:${Math.random().toString(36).substring(2, 15)}`,
             data: payment,
@@ -754,7 +754,7 @@ export class ComgateProvider
 
         return [
           paykitEvent$InboundSchema<Payment>({
-            type: 'payment.created',
+            type: 'payment.succeeded',
             created: new Date().getTime(),
             id: `paykit:payment:${Math.random().toString(36).substring(2, 15)}`,
             data: payment,

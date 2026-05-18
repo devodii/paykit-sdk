@@ -17,7 +17,13 @@ const webhook = paykit.webhooks
     // event.data is typed as Subscription
   })
   .on('payment.created', async event => {
-    // event.data is typed as Payment
+    // event.data is typed as Payment — payment initiated
+  })
+  .on('payment.succeeded', async event => {
+    // event.data is typed as Payment — payment completed successfully
+  })
+  .on('payment.failed', async event => {
+    // event.data is typed as Payment — payment failed or was canceled
   })
   .on('refund.created', async event => {
     // event.data is typed as Refund
@@ -45,7 +51,8 @@ await webhook.handle({
 | `subscription.canceled` | `Subscription` |
 | `payment.created`       | `Payment`      |
 | `payment.updated`       | `Payment`      |
-| `payment.canceled`      | `Payment`      |
+| `payment.succeeded`     | `Payment`      |
+| `payment.failed`        | `Payment`      |
 | `refund.created`        | `Refund`       |
 | `invoice.generated`     | `Invoice`      |
 

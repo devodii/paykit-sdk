@@ -63,7 +63,13 @@ Enable these events in your Stripe dashboard:
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.STRIPE_WEBHOOK_SECRET! })
   .on('payment.created', async event => {
-    /* ... */
+    /* payment_intent.created */
+  })
+  .on('payment.succeeded', async event => {
+    /* payment_intent.succeeded */
+  })
+  .on('payment.failed', async event => {
+    /* payment_intent.payment_failed or payment_intent.canceled */
   })
   .on('subscription.created', async event => {
     /* ... */

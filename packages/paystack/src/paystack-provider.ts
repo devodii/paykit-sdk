@@ -731,7 +731,7 @@ export class PaystackProvider
 
         return [
           paykitEvent$InboundSchema({
-            type: 'payment.updated',
+            type: 'payment.failed',
             created,
             id,
             data: payment,
@@ -829,7 +829,7 @@ export class PaystackProvider
 
         return [
           paykitEvent$InboundSchema({
-            type: 'payment.updated',
+            type: 'payment.failed',
             created,
             id,
             data: { ...payment, status: 'failed' as const },

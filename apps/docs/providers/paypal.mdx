@@ -83,7 +83,7 @@ const webhook = paykit.webhooks
   .on('payment.created', async event => {
     /* CHECKOUT.ORDER.APPROVED */
   })
-  .on('payment.updated', async event => {
+  .on('payment.succeeded', async event => {
     /* CHECKOUT.ORDER.COMPLETED or PAYMENT.CAPTURE.COMPLETED */
   })
   .on('refund.created', async event => {
@@ -126,8 +126,8 @@ All available raw events:
 | PayPal event                                    | PayKit event emitted        |
 | ----------------------------------------------- | --------------------------- |
 | `paypal.CHECKOUT.ORDER.APPROVED`                | `payment.created`           |
-| `paypal.CHECKOUT.ORDER.COMPLETED`               | `payment.updated`           |
-| `paypal.PAYMENT.CAPTURE.COMPLETED`              | `payment.updated`           |
+| `paypal.CHECKOUT.ORDER.COMPLETED`               | `payment.succeeded`         |
+| `paypal.PAYMENT.CAPTURE.COMPLETED`              | `payment.succeeded`         |
 | `paypal.PAYMENT.CAPTURE.REFUNDED`               | `refund.created`            |
 | `paypal.BILLING.SUBSCRIPTION.CREATED`           | `subscription.created`      |
 | `paypal.BILLING.SUBSCRIPTION.UPDATED`           | `subscription.updated`      |

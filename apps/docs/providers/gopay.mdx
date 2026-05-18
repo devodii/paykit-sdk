@@ -70,16 +70,19 @@ Subscriptions (recurring payments) are created as an initial payment with a `rec
 const webhook = paykit.webhooks
   .setup({ webhookSecret: '' }) // GoPay does not use a shared secret
   .on('payment.created', async event => {
-    /* CREATED or PAID state */
+    /* CREATED state */
   })
   .on('payment.updated', async event => {
     /* PAYMENT_METHOD_CHOSEN or AUTHORIZED state */
   })
-  .on('payment.canceled', async event => {
+  .on('payment.succeeded', async event => {
+    /* PAID state */
+  })
+  .on('payment.failed', async event => {
     /* CANCELED or TIMEOUTED state */
   })
   .on('invoice.generated', async event => {
-    /* emitted alongside payment.created on PAID */
+    /* emitted alongside payment.succeeded on PAID */
   })
   .on('subscription.created', async event => {
     /* emitted on PAID when the payment has a parent_id (recurring charge) */
@@ -104,10 +107,10 @@ GoPay payment states and their PayKit event mappings:
 | ------------------------ | ------------------------------------------------------------------ |
 | `CREATED`                | `payment.created`                                                  |
 | `PAYMENT_METHOD_CHOSEN`  | `payment.updated`                                                  |
-| `PAID`                   | `payment.created` + `invoice.generated` (+ `subscription.created` if recurring) |
+| `PAID`                   | `payment.succeeded` + `invoice.generated` (+ `subscription.created` if recurring) |
 | `AUTHORIZED`             | `payment.updated`                                                  |
-| `CANCELED`               | `payment.canceled` (+ `subscription.canceled` if recurrence STOPPED) |
-| `TIMEOUTED`              | `payment.canceled`                                                 |
+| `CANCELED`               | `payment.failed` (+ `subscription.canceled` if recurrence STOPPED) |
+| `TIMEOUTED`              | `payment.failed`                                                   |
 | `REFUNDED`               | `refund.created`                                                   |
 | `PARTIALLY_REFUNDED`     | `refund.created`                                                   |
 

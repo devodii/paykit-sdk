@@ -64,7 +64,7 @@ const webhook = paykit.webhooks
   .on('payment.created', async event => {
     /* order.created */
   })
-  .on('payment.updated', async event => {
+  .on('payment.succeeded', async event => {
     /* order.paid */
   })
   .on('subscription.created', async event => {
@@ -86,7 +86,7 @@ const webhook = paykit.webhooks
     /* customer.deleted */
   })
   .on('invoice.generated', async event => {
-    /* emitted alongside payment.updated on order.paid */
+    /* emitted alongside payment.succeeded on order.paid */
   })
   .on('refund.created', async event => {
     /* refund.created */
@@ -122,7 +122,7 @@ Polar event to PayKit event mappings:
 | Polar event                | PayKit events emitted                       |
 | -------------------------- | ------------------------------------------- |
 | `polar.order.created`      | `payment.created`                           |
-| `polar.order.paid`         | `payment.updated` + `invoice.generated`     |
+| `polar.order.paid`         | `payment.succeeded` + `invoice.generated`   |
 | `polar.customer.created`   | `customer.created`                          |
 | `polar.customer.updated`   | `customer.updated`                          |
 | `polar.customer.deleted`   | `customer.deleted`                          |

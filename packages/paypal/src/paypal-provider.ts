@@ -715,7 +715,7 @@ export class PayPalProvider
         case 'PAYMENT.CAPTURE.COMPLETED':
           return [
             paykitEvent$InboundSchema<Payment>({
-              type: 'payment.updated',
+              type: 'payment.succeeded',
               created: timestamp,
               id: event.id,
               data:

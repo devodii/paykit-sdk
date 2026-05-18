@@ -547,7 +547,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
           },
         };
       })
-      .on('payment.canceled', async event => {
+      .on('payment.failed', async event => {
         result = {
           action: PaymentActions.CANCELED,
           data: {

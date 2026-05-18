@@ -682,7 +682,7 @@ export class PolarProvider
 
           return [
             paykitEvent$InboundSchema<Payment>({
-              type: 'payment.updated',
+              type: 'payment.succeeded',
               created: parseInt(webhookTimestamp),
               id: webhookId,
               data: {

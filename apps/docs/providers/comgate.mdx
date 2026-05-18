@@ -63,16 +63,19 @@ Comgate sends a POST with `merchant`, `secret`, `transId`, and `status` fields i
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.COMGATE_SECRET! })
   .on('payment.created', async event => {
-    /* PAID or PENDING transaction */
+    /* PENDING transaction */
   })
   .on('payment.updated', async event => {
     /* AUTHORIZED (pre-auth, awaiting capture) */
   })
-  .on('payment.canceled', async event => {
+  .on('payment.succeeded', async event => {
+    /* PAID transaction */
+  })
+  .on('payment.failed', async event => {
     /* CANCELLED transaction */
   })
   .on('invoice.generated', async event => {
-    /* emitted alongside payment.created on PAID */
+    /* emitted alongside payment.succeeded on PAID */
   });
 
 await webhook.handle({
@@ -86,10 +89,10 @@ Comgate statuses and their PayKit event mappings:
 
 | Comgate status | PayKit events emitted                      |
 | -------------- | ------------------------------------------ |
-| `PAID`         | `payment.created` + `invoice.generated`    |
+| `PAID`         | `payment.succeeded` + `invoice.generated`  |
 | `PENDING`      | `payment.created`                          |
 | `AUTHORIZED`   | `payment.updated`                          |
-| `CANCELLED`    | `payment.canceled`                         |
+| `CANCELLED`    | `payment.failed`                           |
 
 ### Raw Comgate events
 

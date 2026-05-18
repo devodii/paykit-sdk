@@ -10,7 +10,8 @@ import {
   InvoiceGenerated,
   PaymentCreated,
   PaymentUpdated,
-  PaymentCanceled,
+  PaymentSucceeded,
+  PaymentFailed,
   RefundCreated,
   WebhookEvent,
 } from './resources/webhook';
@@ -30,7 +31,8 @@ export interface StandardEventHandlers {
   ) => Promise<any>;
   'payment.created': (event: PaymentCreated) => Promise<any>;
   'payment.updated': (event: PaymentUpdated) => Promise<any>;
-  'payment.canceled': (event: PaymentCanceled) => Promise<any>;
+  'payment.succeeded': (event: PaymentSucceeded) => Promise<any>;
+  'payment.failed': (event: PaymentFailed) => Promise<any>;
   'refund.created': (event: RefundCreated) => Promise<any>;
   'invoice.generated': (event: InvoiceGenerated) => Promise<any>;
 }

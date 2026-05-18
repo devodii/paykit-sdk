@@ -820,8 +820,6 @@ export class StripeProvider
         'payment_intent.requires_action',
         'payment_intent.amount_capturable_updated',
         'payment_intent.partially_funded',
-        'payment_intent.succeeded',
-        'payment_intent.payment_failed',
       ];
 
     const webhookHandlers: Partial<
@@ -1049,7 +1047,7 @@ export class StripeProvider
 
         return [
           paykitEvent$InboundSchema<Payment>({
-            type: 'payment.canceled',
+            type: 'payment.failed',
             created: event.created,
             id: event.id,
             data: payment,
@@ -1293,10 +1291,23 @@ export class StripeProvider
             }),
           ];
 
-        case 'payment_intent.canceled':
+        case 'payment_intent.succeeded':
           return [
             paykitEvent$InboundSchema<Payment>({
-              type: 'payment.canceled',
+              type: 'payment.succeeded',
+              created: ev.created,
+              id: ev.id,
+              data: Payment$inboundSchema(
+                ev.data.object as Stripe.PaymentIntent,
+              ),
+            }),
+          ];
+
+        case 'payment_intent.canceled':
+        case 'payment_intent.payment_failed':
+          return [
+            paykitEvent$InboundSchema<Payment>({
+              type: 'payment.failed',
               created: ev.created,
               id: ev.id,
               data: Payment$inboundSchema(
@@ -1309,8 +1320,6 @@ export class StripeProvider
         case 'payment_intent.requires_action':
         case 'payment_intent.amount_capturable_updated':
         case 'payment_intent.partially_funded':
-        case 'payment_intent.succeeded':
-        case 'payment_intent.payment_failed':
           return [
             paykitEvent$InboundSchema<Payment>({
               type: 'payment.updated',

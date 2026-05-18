@@ -39,7 +39,8 @@ export type SubscriptionUpdated = WebhookEvent<Subscription | null>;
 export type SubscriptionCanceled = WebhookEvent<Subscription | null>;
 export type PaymentCreated = WebhookEvent<Payment>;
 export type PaymentUpdated = WebhookEvent<Payment | null>;
-export type PaymentCanceled = WebhookEvent<Payment | null>;
+export type PaymentSucceeded = WebhookEvent<Payment>;
+export type PaymentFailed = WebhookEvent<Payment | null>;
 export type RefundCreated = WebhookEvent<Refund>;
 export type InvoiceGenerated = WebhookEvent<Invoice>;
 
@@ -65,7 +66,8 @@ export type WebhookEventPayload<
   | SubscriptionCanceled
   | PaymentCreated
   | PaymentUpdated
-  | PaymentCanceled
+  | PaymentSucceeded
+  | PaymentFailed
   | RefundCreated
   | InvoiceGenerated
   | { [K in keyof TRawMap]: WebhookEvent<TRawMap[K]> }[keyof TRawMap];

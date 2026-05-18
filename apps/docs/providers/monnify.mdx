@@ -61,10 +61,13 @@ Monnify signs webhook payloads with HMAC-SHA512 via the `monnify-signature` head
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.MONNIFY_WEBHOOK_SECRET! })
   .on('payment.created', async event => {
-    /* transaction completed successfully */
+    /* SUCCESSFUL_TRANSACTION */
+  })
+  .on('payment.failed', async event => {
+    /* REJECTED_PAYMENT */
   })
   .on('payment.updated', async event => {
-    /* settlement or rejected payment */
+    /* SETTLEMENT */
   })
   .on('refund.created', async event => {
     /* refund succeeded or failed */
@@ -98,7 +101,7 @@ All available raw events and their PayKit mappings:
 | -------------------------------- | --------------------- |
 | `monnify.SUCCESSFUL_TRANSACTION` | `payment.created`     |
 | `monnify.SUCCESSFUL_TRANSACTION_OFFLINE` | `payment.created` |
-| `monnify.REJECTED_PAYMENT`       | `payment.updated`     |
+| `monnify.REJECTED_PAYMENT`       | `payment.failed`      |
 | `monnify.SETTLEMENT`             | `payment.updated`     |
 | `monnify.SUCCESSFUL_REFUND`      | `refund.created`      |
 | `monnify.FAILED_REFUND`          | `refund.created`      |

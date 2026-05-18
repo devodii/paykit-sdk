@@ -1131,7 +1131,7 @@ export class GoPayProvider
               ]
             : []),
           paykitEvent$InboundSchema<Payment>({
-            type: 'payment.canceled',
+            type: 'payment.failed',
             created: new Date().getTime(),
             id: crypto.randomBytes(8).toString('hex').slice(0, 15),
             data: payment,
@@ -1143,7 +1143,7 @@ export class GoPayProvider
 
         return [
           paykitEvent$InboundSchema<Payment>({
-            type: 'payment.canceled',
+            type: 'payment.failed',
             created: new Date().getTime(),
             id: crypto.randomBytes(8).toString('hex').slice(0, 15),
             data: payment,
@@ -1179,7 +1179,7 @@ export class GoPayProvider
             data: invoice,
           }),
           paykitEvent$InboundSchema<Payment>({
-            type: 'payment.created',
+            type: 'payment.succeeded',
             created: new Date().getTime(),
             id: crypto.randomBytes(8).toString('hex').slice(0, 15),
             data: payment,
