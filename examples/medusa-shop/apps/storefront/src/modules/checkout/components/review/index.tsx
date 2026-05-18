@@ -2,9 +2,10 @@
 
 import { Heading, Text, clx } from "@modules/common/components/ui"
 
-import PaymentButton from "../payment-button"
+import { PaymentButtonRegistry } from "../payment-registry"
 import { useSearchParams } from "next/navigation"
 import { HttpTypes } from "@medusajs/types"
+import { getProviderConfig } from "@lib/constant"
 
 const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
   const searchParams = useSearchParams()
@@ -23,6 +24,19 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
     (cart.shipping_methods?.length ?? 0) > 0 &&
     (cart.payment_collection || paidByGiftcard)
 
+  const activeSession = cart.payment_collection?.payment_sessions?.[0]
+  const providerUIConfig = getProviderConfig(activeSession?.provider_id)
+
+  const strategy = paidByGiftcard ? "manual" : providerUIConfig.strategy
+  const PaymentButtonComponent = PaymentButtonRegistry[strategy]
+
+  const notReady =
+    !cart ||
+    !cart.shipping_address ||
+    !cart.billing_address ||
+    !cart.email ||
+    (cart.shipping_methods?.length ?? 0) < 1
+
   return (
     <div className="bg-white">
       <div className="flex flex-row items-center justify-between mb-6">
@@ -32,7 +46,7 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
             "flex flex-row text-3xl-regular gap-x-2 items-baseline",
             {
               "opacity-50 pointer-events-none select-none": !isOpen,
-            },
+            }
           )}
         >
           Review
@@ -50,7 +64,12 @@ const Review = ({ cart }: { cart: HttpTypes.StoreCart }) => {
               </Text>
             </div>
           </div>
-          <PaymentButton cart={cart} data-testid="submit-order-button" />
+
+          <PaymentButtonComponent
+            cart={cart}
+            notReady={notReady}
+            data-testid="submit-order-button"
+          />
         </>
       )}
     </div>

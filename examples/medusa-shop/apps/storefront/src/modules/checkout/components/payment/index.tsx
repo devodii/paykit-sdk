@@ -1,6 +1,5 @@
 "use client"
 import { RadioGroup } from "@headlessui/react"
-import { isStripeLike, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
 import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -18,6 +17,20 @@ import {
 import { HttpTypes } from "@medusajs/types"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
+import { getProviderConfig } from "@lib/constant"
+
+function buildPaymentData(
+  cart: HttpTypes.StoreCart,
+  pathname: string
+): Record<string, unknown> {
+  const countryCode = pathname.split("/")[1]
+  const successUrl = `${window.location.origin}/${countryCode}/order/payment-return?cart_id=${cart.id}`
+  return {
+    email: cart.email,
+    provider_metadata: { success_url: successUrl },
+    item_id: cart.id,
+  }
+}
 
 const Payment = ({
   cart,
@@ -27,7 +40,7 @@ const Payment = ({
   availablePaymentMethods: { id: string }[]
 }) => {
   const activeSession = cart.payment_collection?.payment_sessions?.find(
-    (paymentSession) => paymentSession.status === "pending",
+    (paymentSession) => paymentSession.status === "pending"
   )
 
   const [isLoading, setIsLoading] = useState(false)
@@ -35,7 +48,7 @@ const Payment = ({
   const [cardBrand, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-    activeSession?.provider_id ?? "",
+    activeSession?.provider_id ?? ""
   )
 
   const searchParams = useSearchParams()
@@ -44,12 +57,15 @@ const Payment = ({
 
   const isOpen = searchParams.get("step") === "payment"
 
+  const providerUIConfig = getProviderConfig(selectedPaymentMethod)
+
   const setPaymentMethod = async (method: string) => {
     setError(null)
     setSelectedPaymentMethod(method)
-    if (isStripeLike(method)) {
+    if (providerUIConfig.strategy === "integrated-stripe") {
       await initiatePaymentSession(cart, {
         provider_id: method,
+        data: buildPaymentData(cart, pathname),
       })
     }
   }
@@ -72,7 +88,7 @@ const Payment = ({
 
       return params.toString()
     },
-    [searchParams],
+    [searchParams]
   )
 
   const handleEdit = () => {
@@ -85,7 +101,7 @@ const Payment = ({
     setIsLoading(true)
     try {
       const shouldInputCard =
-        isStripeLike(selectedPaymentMethod) && !activeSession
+        providerUIConfig.strategy === "integrated-stripe" && !activeSession
 
       const checkActiveSession =
         activeSession?.provider_id === selectedPaymentMethod
@@ -93,6 +109,7 @@ const Payment = ({
       if (!checkActiveSession) {
         await initiatePaymentSession(cart, {
           provider_id: selectedPaymentMethod,
+          data: buildPaymentData(cart, pathname),
         })
       }
 
@@ -101,7 +118,7 @@ const Payment = ({
           pathname + "?" + createQueryString("step", "review"),
           {
             scroll: false,
-          },
+          }
         )
       }
     } catch (err) {
@@ -125,7 +142,7 @@ const Payment = ({
             {
               "opacity-50 pointer-events-none select-none":
                 !isOpen && !paymentReady,
-            },
+            }
           )}
         >
           Payment
@@ -151,26 +168,32 @@ const Payment = ({
                 value={selectedPaymentMethod}
                 onChange={(value: string) => setPaymentMethod(value)}
               >
-                {availablePaymentMethods.map((paymentMethod) => (
-                  <div key={paymentMethod.id}>
-                    {isStripeLike(paymentMethod.id) ? (
-                      <StripeCardContainer
-                        paymentProviderId={paymentMethod.id}
-                        selectedPaymentOptionId={selectedPaymentMethod}
-                        paymentInfoMap={paymentInfoMap}
-                        setCardBrand={setCardBrand}
-                        setError={setError}
-                        setCardComplete={setCardComplete}
-                      />
-                    ) : (
+                {availablePaymentMethods.map((paymentMethod) => {
+                  const config = getProviderConfig(paymentMethod.id)
+                  const isSelected = selectedPaymentMethod === paymentMethod.id
+
+                  return (
+                    <div key={paymentMethod.id}>
                       <PaymentContainer
-                        paymentInfoMap={paymentInfoMap}
                         paymentProviderId={paymentMethod.id}
                         selectedPaymentOptionId={selectedPaymentMethod}
-                      />
-                    )}
-                  </div>
-                ))}
+                        providerUIConfig={config}
+                      >
+                        {isSelected &&
+                          config.strategy === "integrated-stripe" && (
+                            <StripeCardContainer
+                              paymentProviderId={paymentMethod.id}
+                              selectedPaymentOptionId={selectedPaymentMethod}
+                              providerUIConfig={config}
+                              setCardBrand={setCardBrand}
+                              setError={setError}
+                              setCardComplete={setCardComplete}
+                            />
+                          )}
+                      </PaymentContainer>
+                    </div>
+                  )
+                })}
               </RadioGroup>
             </>
           )}
@@ -200,12 +223,13 @@ const Payment = ({
             onClick={handleSubmit}
             isLoading={isLoading}
             disabled={
-              (isStripeLike(selectedPaymentMethod) && !cardComplete) ||
+              (providerUIConfig.strategy === "integrated-stripe" &&
+                !cardComplete) ||
               (!selectedPaymentMethod && !paidByGiftcard)
             }
             data-testid="submit-payment-button"
           >
-            {!activeSession && isStripeLike(selectedPaymentMethod)
+            {!activeSession && providerUIConfig.strategy === "integrated-stripe"
               ? " Enter card details"
               : "Continue to review"}
           </Button>
@@ -222,8 +246,7 @@ const Payment = ({
                   className="txt-medium text-ui-fg-subtle"
                   data-testid="payment-method-summary"
                 >
-                  {paymentInfoMap[activeSession?.provider_id]?.title ||
-                    activeSession?.provider_id}
+                  {providerUIConfig.title || activeSession?.provider_id}
                 </Text>
               </div>
               <div className="flex flex-col w-1/3">
@@ -235,12 +258,11 @@ const Payment = ({
                   data-testid="payment-details-summary"
                 >
                   <Container className="flex items-center h-7 w-fit p-2 bg-ui-button-neutral-hover">
-                    {paymentInfoMap[selectedPaymentMethod]?.icon || (
-                      <CreditCard />
-                    )}
+                    {providerUIConfig.icon || <CreditCard />}
                   </Container>
                   <Text>
-                    {isStripeLike(selectedPaymentMethod) && cardBrand
+                    {providerUIConfig.strategy === "integrated-stripe" &&
+                    cardBrand
                       ? cardBrand
                       : "Another step will appear"}
                   </Text>

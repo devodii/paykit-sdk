@@ -4,7 +4,7 @@ import { loadStripe } from "@stripe/stripe-js"
 import React from "react"
 import StripeWrapper from "./stripe-wrapper"
 import { HttpTypes } from "@medusajs/types"
-import { isStripeLike } from "@lib/constants"
+import { getProviderConfig } from "@lib/constant"
 
 type PaymentWrapperProps = {
   cart: HttpTypes.StoreCart
@@ -19,17 +19,19 @@ const medusaAccountId = process.env.NEXT_PUBLIC_MEDUSA_PAYMENTS_ACCOUNT_ID
 const stripePromise = stripeKey
   ? loadStripe(
       stripeKey,
-      medusaAccountId ? { stripeAccount: medusaAccountId } : undefined,
+      medusaAccountId ? { stripeAccount: medusaAccountId } : undefined
     )
   : null
 
 const PaymentWrapper: React.FC<PaymentWrapperProps> = ({ cart, children }) => {
   const paymentSession = cart.payment_collection?.payment_sessions?.find(
-    (s) => s.status === "pending",
+    (s) => s.status === "pending"
   )
 
+  const providerUIConfig = getProviderConfig(paymentSession?.provider_id)
+
   if (
-    isStripeLike(paymentSession?.provider_id) &&
+    providerUIConfig.strategy === "integrated-stripe" &&
     paymentSession &&
     stripePromise
   ) {

@@ -29,10 +29,26 @@ export const retrieveOrder = async (id: string) => {
     .catch((err) => medusaError(err))
 }
 
+export const retrieveOrderByCartId = async (cartId: string) => {
+  const headers = {
+    ...(await getAuthHeaders()),
+  }
+
+  return sdk.client
+    .fetch<HttpTypes.StoreOrderListResponse>(`/store/orders`, {
+      method: "GET",
+      query: { cart_id: cartId, fields: "id,status" },
+      headers,
+      cache: "no-store",
+    })
+    .then(({ orders }) => orders?.[0] ?? null)
+    .catch(() => null)
+}
+
 export const listOrders = async (
   limit: number = 10,
   offset: number = 0,
-  filters?: Record<string, unknown>,
+  filters?: Record<string, unknown>
 ) => {
   const headers = {
     ...(await getAuthHeaders()),
@@ -66,7 +82,7 @@ export const createTransferRequest = async (
     error: string | null
     order: HttpTypes.StoreOrder | null
   },
-  formData: FormData,
+  formData: FormData
 ): Promise<{
   success: boolean
   error: string | null
@@ -87,7 +103,7 @@ export const createTransferRequest = async (
       {
         fields: "id, email",
       },
-      headers,
+      headers
     )
     .then(({ order }) => ({ success: true, error: null, order }))
     .catch((err) => ({ success: false, error: err.message, order: null }))

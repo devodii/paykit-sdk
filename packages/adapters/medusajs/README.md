@@ -34,6 +34,7 @@ export default defineConfig({
               provider: stripe(),
               webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
               debug: process.env.NODE_ENV === 'development',
+              amountToCentsMultiplier: 100,
             },
           },
         ],

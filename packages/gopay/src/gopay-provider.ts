@@ -1,65 +1,74 @@
 import {
-  createPaymentSchema,
-  Customer,
-  HTTPClient,
-  PayKitProvider,
-  Subscription,
-  UpdateCustomerParams,
-  UpdateSubscriptionSchema,
-  WebhookEventPayload,
+  AbstractPayKitProvider,
+  CapturePaymentSchema,
+  Checkout,
+  ConfigurationError,
+  CreateCheckoutSchema,
+  CreateCustomerParams,
   CreatePaymentSchema,
   CreateRefundSchema,
   CreateSubscriptionSchema,
-  Payment,
-  Refund,
-  UpdatePaymentSchema,
-  PaykitProviderOptions,
-  CreateCheckoutSchema,
-  OperationFailedError,
-  createCheckoutSchema,
-  ValidationError,
-  validateRequiredKeys,
+  Customer,
+  HTTPClient,
   InvalidTypeError,
-  Checkout,
-  UpdateCheckoutSchema,
-  ProviderNotSupportedError,
-  createSubscriptionSchema,
-  ConfigurationError,
-  CapturePaymentSchema,
-  createRefundSchema,
-  WebhookError,
-  tryCatchAsync,
-  paykitEvent$InboundSchema,
   Invoice,
-  schema,
-  AbstractPayKitProvider,
-  PAYKIT_METADATA_KEY,
   LooseAutoComplete,
   OAuth2TokenManager,
+  OperationFailedError,
+  PAYKIT_METADATA_KEY,
+  PayKitProvider,
+  PaykitProviderOptions,
+  Payment,
+  ProviderMetadataRegistry,
+  ProviderNotSupportedError,
+  Refund,
+  Subscription,
+  UpdateCheckoutSchema,
+  UpdateCustomerParams,
+  UpdatePaymentSchema,
+  UpdateSubscriptionSchema,
+  ValidationError,
+  WebhookError,
+  WebhookEventPayload,
+  WebhookHandlerConfig,
+  createCheckoutSchema,
+  createPaymentSchema,
+  createRefundSchema,
+  createSubscriptionSchema,
   isEmailCustomer,
   isIdCustomer,
-  ProviderMetadataRegistry,
-  WebhookHandlerConfig,
+  paykitEvent$InboundSchema,
+  schema,
+  tryCatchAsync,
+  validateRequiredKeys,
 } from '@paykit-sdk/core';
-import { CreateCustomerParams } from '@paykit-sdk/core';
 import * as crypto from 'crypto';
 import { z } from 'zod';
 import {
-  GoPayPaymentRequest,
   GoPayPaymentBaseResponse,
+  GoPayPaymentRequest,
   GoPaySubscriptionResponse,
 } from './schema';
 import {
-  decodeHtmlEntities,
   Checkout$inboundSchema,
   Invoice$inboundSchema,
   Payment$inboundSchema,
   Refund$inboundSchema,
   Subscription$inboundSchema,
+  decodeHtmlEntities,
 } from './utils/mapper';
 
 interface GoPayMetadata extends ProviderMetadataRegistry {
+  checkout: {
+    amount: number | string;
+    currency: string;
+    language: string;
+  };
   subscription: {
+    success_url: string;
+    recurrence_period?: number;
+  };
+  payments: {
     success_url: string;
   };
 }
@@ -161,16 +170,17 @@ export class GoPayProvider
   }
 
   createCheckout = async (
-    params: CreateCheckoutSchema,
+    params: CreateCheckoutSchema<GoPayMetadata['checkout']>,
   ): Promise<Checkout> => {
     const { error, data } = createCheckoutSchema.safeParse(params);
 
-    if (error)
+    if (error) {
       throw ValidationError.fromZodError(
         error,
         'gopay',
         'createCheckout',
       );
+    }
 
     if (!isEmailCustomer(data.customer)) {
       throw new InvalidTypeError(
@@ -212,12 +222,12 @@ export class GoPayProvider
       },
       target: { type: 'ACCOUNT', goid: parseInt(this.opts.goId) },
       amount: Number(amount),
-      currency,
+      currency: currency.toUpperCase(),
       order_number: crypto
         .randomBytes(8)
         .toString('hex')
         .slice(0, 15),
-      order_description: data.metadata?.description || 'Checkout',
+      order_description: `Payment for ${data.item_id} by ${data.customer.email}`,
       items: [
         {
           name: data.item_id,
@@ -427,6 +437,21 @@ export class GoPayProvider
             'See: https://doc.gopay.com/#recurring-on-demand',
         );
       }
+      if (!isOnDemand) {
+        console.info(
+          `[PayKit/GoPay] AUTO recurrence (${recurrenceCycle}) — GoPay charges automatically each cycle. ` +
+            'No createRecurrence() call is needed. ' +
+            'Set provider_metadata.end_date (ISO string, e.g. "2027-01-01") to control when the subscription ends. ' +
+            'Defaults to 1 year from today.',
+        );
+      } else {
+        console.info(
+          '[PayKit/GoPay] ON_DEMAND recurrence — you MUST call createRecurrence(parentPaymentId, ...) ' +
+            'for each subsequent charge. GoPay will NOT charge automatically. ' +
+            'Set provider_metadata.end_date (ISO string) to control the authorization window. ' +
+            'Defaults to 1 year (custom interval) or 5 years (yearly interval).',
+        );
+      }
       if (!data.provider_metadata?.description) {
         console.info(
           `[PayKit/GoPay] No \`provider_metadata.description\` provided. ` +
@@ -442,47 +467,53 @@ export class GoPayProvider
 
     const GOPAY_MAX_DATE = '2099-12-30';
 
+    // recurrence_date_to = subscription END DATE.
+    // For AUTO cycles (DAY/WEEK/MONTH): the date of the last automatic charge.
+    // For ON_DEMAND: the date until which the parent payment is valid for creating recurrences.
+    // Override via provider_metadata.end_date (ISO string, e.g. "2027-01-01").
+    const endDateOverride = data.provider_metadata?.end_date as
+      | string
+      | undefined;
+
     const recurrenceDateTo = (() => {
-      if (recurrenceCycle === 'DAY') {
-        return toDateString(Date.now() + 1 * 24 * 60 * 60 * 1000);
+      if (endDateOverride) {
+        return endDateOverride < GOPAY_MAX_DATE
+          ? endDateOverride
+          : GOPAY_MAX_DATE;
       }
-      if (recurrenceCycle === 'WEEK') {
-        return toDateString(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      }
-      if (recurrenceCycle === 'MONTH') {
-        return toDateString(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      }
+
       if (recurrenceCycle === 'ON_DEMAND') {
         if (isCustom) {
-          const durationMs = (
-            billingInterval as { type: 'custom'; durationMs: number }
-          ).durationMs;
-          const candidateDate = toDateString(Date.now() + durationMs);
-          return candidateDate < GOPAY_MAX_DATE
-            ? candidateDate
-            : GOPAY_MAX_DATE;
+          // 1-year authorization window for custom intervals
+          return toDateString(Date.now() + 365 * 24 * 60 * 60 * 1000);
         }
-        // year → give a generous 5-year authorization window
+
+        // year → 5-year authorization window
         return toDateString(
           Date.now() + 5 * 365 * 24 * 60 * 60 * 1000,
         );
       }
-      throw new Error(
-        `[PayKit/GoPay] Unhandled recurrence cycle: ${recurrenceCycle}`,
-      );
+
+      // AUTO cycles (DAY / WEEK / MONTH): default to 1-year subscription.
+      return toDateString(Date.now() + 365 * 24 * 60 * 60 * 1000);
     })();
 
-    // ─── Build recurrence object ─────────────────────────────────────────────
-    // IMPORTANT: recurrence_period MUST NOT be sent for ON_DEMAND (per GoPay docs)
+    // recurrence_period = interval multiplier (e.g. DAY + period 7 = every 7 days).
+    // Override via provider_metadata.recurrence_period. Defaults to 1 (every cycle).
+    // MUST NOT be sent for ON_DEMAND (per GoPay docs).
+    const recurrencePeriod =
+      (data.provider_metadata?.recurrence_period as
+        | number
+        | undefined) ?? 1;
+
     const recurrence = isOnDemand
       ? {
           recurrence_cycle: recurrenceCycle,
           recurrence_date_to: recurrenceDateTo,
-          // recurrence_period intentionally omitted for ON_DEMAND
         }
       : {
           recurrence_cycle: recurrenceCycle,
-          recurrence_period: data.quantity ?? 1,
+          recurrence_period: recurrencePeriod,
           recurrence_date_to: recurrenceDateTo,
         };
 
@@ -634,16 +665,17 @@ export class GoPayProvider
   };
 
   createPayment = async (
-    params: CreatePaymentSchema,
+    params: CreatePaymentSchema<GoPayMetadata['payment']>,
   ): Promise<Payment> => {
     const { error, data } = createPaymentSchema.safeParse(params);
 
-    if (error)
+    if (error) {
       throw ValidationError.fromZodError(
         error,
         this.providerName,
         'createPayment',
       );
+    }
 
     if (!isEmailCustomer(data.customer)) {
       throw new InvalidTypeError(
@@ -686,20 +718,36 @@ export class GoPayProvider
         allowed_payment_instruments: ['PAYMENT_CARD', 'BANK_ACCOUNT'],
         default_payment_instrument: 'PAYMENT_CARD',
         contact: { email: data.customer.email as string },
-      },
-      callback: {
-        return_url: successUrl,
-        notification_url: this.opts.webhookUrl,
+        ...(data.billing && {
+          city: data.billing.address.city,
+          postal_code: data.billing.address.postal_code,
+          country_code: data.billing.address.country,
+          phone_number: data.billing.address.phone,
+        }),
       },
       target: { type: 'ACCOUNT', goid: parseInt(this.opts.goId) },
-      amount: data.amount,
+      amount: Number(data.amount),
       currency: data.currency ?? 'CZK',
       order_number: crypto
         .randomBytes(8)
         .toString('hex')
         .slice(0, 15),
       order_description: `Payment for ${data.item_id} by ${data.customer.email}`,
-      items: [{ name: data.item_id, amount: data.amount, count: 1 }],
+      items: [
+        {
+          name: data.item_id,
+          amount: data.amount,
+          count: 1,
+          type: 'ITEM',
+        },
+      ],
+      lang: data.provider_metadata?.language
+        ? (data.provider_metadata.language as string)
+        : 'EN',
+      callback: {
+        return_url: successUrl,
+        notification_url: this.opts.webhookUrl,
+      },
       preauthorization: false, // automatically captures the payment
       additional_params: Object.entries({
         ...data.metadata,
@@ -727,7 +775,9 @@ export class GoPayProvider
         'createPayment',
         this.providerName,
         {
-          cause: new Error('Failed to create payment'),
+          cause: new Error(
+            `Failed to create payment: ${JSON.stringify(response.error ?? response)}`,
+          ),
         },
       );
     }

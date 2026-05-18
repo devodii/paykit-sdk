@@ -29,6 +29,7 @@ module.exports = defineConfig({
             options: {
               provider: gopay(),
               debug: true,
+              amountToCentsMultiplier: 100,
             },
           },
         ],

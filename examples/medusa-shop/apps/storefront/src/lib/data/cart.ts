@@ -3,7 +3,7 @@
 import { sdk } from "@lib/config"
 import medusaError from "@lib/util/medusa-error"
 import { HttpTypes } from "@medusajs/types"
-import { revalidateTag } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import {
   getAuthHeaders,
@@ -417,6 +417,10 @@ export async function placeOrder(cartId?: string) {
 
     const orderCacheTag = await getCacheTag("orders")
     revalidateTag(orderCacheTag)
+
+    // Revalidate by path as well so the cart header clears for guest users
+    // who may not have a _medusa_cache_id cookie (making revalidateTag a no-op)
+    revalidatePath("/", "layout")
 
     removeCartId()
     redirect(`/${countryCode}/order/${cartRes?.order.id}/confirmed`)

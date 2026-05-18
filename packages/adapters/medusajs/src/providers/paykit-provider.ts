@@ -46,6 +46,7 @@ import {
   isIdCustomer,
   isEmailCustomer,
   PaykitMetadata,
+  BillingInfo,
 } from '@paykit-sdk/core';
 import { z } from 'zod';
 import { PaymentStatus$inboundSchema } from '../utils/mapper';
@@ -60,6 +61,13 @@ const optionsSchema = z.object({
    * The webhook secret for the provider.
    */
   webhookSecret: z.string().nullable().default(null),
+
+  /**
+   * Multiplier applied to the amount before sending to the payment provider.
+   * Use this when your provider expects amounts in the smallest currency unit (e.g. cents)
+   * but Medusa is passing amounts in the major unit (e.g. euros).
+   */
+  amountToCentsMultiplier: z.number().min(1).default(1),
 
   /**
    * Whether to enable debug mode
@@ -154,7 +162,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
     if (this.options.debug) {
       console.info('[PayKit] Initiating payment', {
         context,
-        amount,
+        amount: Number(amount) * this.options.amountToCentsMultiplier,
         currency_code,
         data,
       });
@@ -211,29 +219,30 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
         }),
         'Customer Creation',
         { allowUnsupported: true },
-      ).catch(e => {
-        // Fallback if provider doesn't support customer objects
-        return { email: (customer as { email: string }).email };
-      });
-      customer = {
-        ...(created && 'id' in created ? { id: created.id } : {}),
-        ...(created && 'email' in created
-          ? { email: created.email }
-          : {}),
-      } as Payee;
+      );
+
+      if (created) {
+        customer = {
+          ...('id' in created ? { id: created.id } : {}),
+          ...('email' in created ? { email: created.email } : {}),
+        } as Payee;
+      }
     }
 
     const payment = await this.exec(
       this.paykit.payments.create({
-        amount: Number(amount),
-        currency: currency_code,
+        amount: Number(amount) * this.options.amountToCentsMultiplier,
+        currency: currency_code.toUpperCase(),
         customer,
-        item_id: data?.item_id as string,
+        item_id: (data?.item_id as string) ?? null,
         capture_method: 'manual',
         metadata: {
           ...(data?.metadata as Record<string, unknown>),
           session_id: data?.session_id,
         },
+        ...(data?.billing
+          ? { billing: data.billing as BillingInfo }
+          : {}),
         provider_metadata: data?.provider_metadata,
       }),
       'Initiate',
@@ -265,7 +274,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
 
     const data = await this.exec(
       this.paykit.payments.capture(paymentId, {
-        amount: Number(amount),
+        amount: Number(amount) * this.options.amountToCentsMultiplier,
       }),
       'Capture',
     );
@@ -277,7 +286,38 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
   authorizePayment = async (
     input: AuthorizePaymentInput,
   ): Promise<AuthorizePaymentOutput> => {
-    return this.getPaymentStatus(input);
+    const { id: paymentId } = validateRequiredKeys(
+      ['id'],
+      (input.data as Record<string, string>) ?? {},
+      'Missing required fields: {keys}',
+      message =>
+        new MedusaError(MedusaError.Types.INVALID_DATA, message),
+    );
+
+    const payment = await this.exec(
+      this.paykit.payments.retrieve(paymentId),
+      'Authorize',
+    );
+
+    if (!payment) {
+      throw new MedusaError(
+        MedusaError.Types.NOT_FOUND,
+        'Payment not found',
+      );
+    }
+
+    const resolvedStatus = (() => {
+      if (payment.requires_action)
+        return PaymentSessionStatus.REQUIRES_MORE;
+      if (payment.status === 'succeeded')
+        return PaymentSessionStatus.AUTHORIZED;
+      return PaymentStatus$inboundSchema(payment.status);
+    })();
+
+    return {
+      status: resolvedStatus,
+      data: payment as unknown as Record<string, unknown>,
+    };
   };
 
   cancelPayment = async (
@@ -303,14 +343,30 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
     return { data: data as unknown as Record<string, unknown> };
   };
 
-  deletePayment(
+  deletePayment = async (
     input: DeletePaymentInput,
-  ): Promise<DeletePaymentOutput> {
-    throw new MedusaError(
-      MedusaError.Types.NOT_ALLOWED,
-      'deletePayment is not allowed, use `cancelPayment` instead',
+  ): Promise<DeletePaymentOutput> => {
+    if (this.options.debug) {
+      console.info(
+        '[PayKit] Deleting payment (attempting cancel)',
+        input,
+      );
+    }
+
+    const paymentId = (input.data as Record<string, string>)?.id;
+
+    if (!paymentId) {
+      return {};
+    }
+
+    const data = await this.exec(
+      this.paykit.payments.cancel(paymentId),
+      'Cancel',
+      { allowUnsupported: true },
     );
-  }
+
+    return { data: data as unknown as Record<string, unknown> };
+  };
 
   getPaymentStatus = async (
     input: GetPaymentStatusInput,
@@ -359,7 +415,8 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
     const refund = await this.exec(
       this.paykit.refunds.create({
         payment_id: paymentId,
-        amount: Number(input.amount),
+        amount:
+          Number(input.amount) * this.options.amountToCentsMultiplier,
         reason,
         metadata:
           (input.data?.metadata as unknown as PaykitMetadata) ?? null,
@@ -419,8 +476,8 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
 
     const data = await this.exec(
       this.paykit.payments.update(paymentId, {
-        amount: Number(amount),
-        currency: currencyCode,
+        amount: Number(amount) * this.options.amountToCentsMultiplier,
+        currency: currencyCode.toUpperCase(),
         provider_metadata: input.data
           ?.provider_metadata as unknown as Record<string, unknown>,
       }),
@@ -466,12 +523,27 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
 
     const webhook = this.paykit.webhooks
       .setup({ webhookSecret: this.options.webhookSecret })
+      .on('payment.created', async event => {
+        result = {
+          action: statusMap[event?.data?.status ?? 'pending'],
+          data: {
+            session_id: event.data?.metadata?.session_id as string,
+            amount: event.data?.amount
+              ? event.data?.amount *
+                this.options.amountToCentsMultiplier
+              : 0,
+          },
+        };
+      })
       .on('payment.updated', async event => {
         result = {
           action: statusMap[event?.data?.status ?? 'pending'],
           data: {
             session_id: event.data?.metadata?.session_id as string,
-            amount: event.data?.amount ?? 0,
+            amount: event.data?.amount
+              ? event.data?.amount *
+                this.options.amountToCentsMultiplier
+              : 0,
           },
         };
       })
@@ -479,7 +551,10 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
         result = {
           action: PaymentActions.CANCELED,
           data: {
-            amount: event.data?.amount ?? 0,
+            amount: event.data?.amount
+              ? event.data?.amount *
+                this.options.amountToCentsMultiplier
+              : 0,
             session_id: event.data?.metadata?.session_id as string,
           },
         };

@@ -36,6 +36,34 @@ export default defineConfig({
 
 Swap `stripe()` for any PayKit provider and everything else stays the same.
 
+## Configuration Options
+
+| Option                    | Type           | Required | Default | Description                                                                                     |
+| ------------------------- | -------------- | -------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `provider`                | PayKitProvider | Yes      | —       | A PayKit provider instance (e.g. `stripe()`, `gopay()`)                                         |
+| `webhookSecret`           | string \| null | No       | `null`  | Webhook secret used to verify incoming webhook payloads                                         |
+| `amountToCentsMultiplier` | number (≥ 1)   | No       | `1`     | Multiplies the Medusa amount before sending to the provider. Use `100` for cent-based providers |
+| `debug`                   | boolean        | No       | `false` | Logs PayKit operations to the console                                                           |
+
+### `amountToCentsMultiplier`
+
+Some providers (e.g. GoPay) expect amounts in the smallest currency unit — `3000` for 30 EUR. If Medusa is passing the amount in the major unit, set this option to convert automatically:
+
+```typescript filename="medusa-config.ts"
+import { gopay } from '@paykit-sdk/gopay';
+
+{
+  resolve: '@paykit-sdk/medusajs',
+  options: {
+    provider: gopay(),
+    webhookSecret: process.env.GOPAY_WEBHOOK_SECRET,
+    amountToCentsMultiplier: 100, // 30 EUR → sends 3000 to GoPay
+  },
+}
+```
+
+Defaults to `1` (no conversion). Minimum value is `1`.
+
 ## Example
 
-See a working Medusa + PayKit server: [GitHub](https://github.com/usepaykit/medusa-example)
+See a working Medusa + PayKit server: [GitHub](https://github.com/usepaykit/paykit-sdk/examples/medusa-shop)

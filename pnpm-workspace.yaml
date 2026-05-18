@@ -1,6 +1,11 @@
 packages:
   - 'apps/*'
-  - 'packages/*'
-  - 'packages/adapters/*'
-  - 'examples/*'
-  - 'playground/*'
+
+  - 'packages/**'
+  - 'examples/**'
+
+  - 'playground/**'
+
+  - '!**/node_modules/**'
+  - '!**/dist/**'
+  - '!**/build/**'
