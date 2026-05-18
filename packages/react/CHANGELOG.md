@@ -1,5 +1,13 @@
 # @paykit-sdk/react
 
+## 1.1.97
+
+### Patch Changes
+
+- 1c727ff: fix: make webhooksecret and customer phone nullable, medusa adapter improvements and more
+- Updated dependencies [1c727ff]
+  - @paykit-sdk/core@1.1.103
+
 ## 1.1.96
 
 ### Patch Changes
