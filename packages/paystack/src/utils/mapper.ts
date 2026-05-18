@@ -29,8 +29,8 @@ export const Customer$inboundSchema = (
 ): Customer => {
   const { fullName } = parseCustomerName({
     name:
-      [data.first_name, data.last_name].filter(Boolean).join(' ') ||
-      '',
+      [data.first_name, data.last_name].filter(Boolean).join(' ') ??
+      undefined,
     email: data.email,
   });
 
