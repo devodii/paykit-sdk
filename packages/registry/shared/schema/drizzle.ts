@@ -39,7 +39,7 @@ export const customers = pgTable('customers', {
   id: text('id').primaryKey(),
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
-  phone: text('phone').notNull(),
+  phone: text('phone'),
   metadata: json('metadata'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

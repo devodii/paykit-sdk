@@ -23,7 +23,7 @@ export interface Customer {
   /**
    * The phone number of the customer.
    */
-  phone: string;
+  phone: string | null;
 
   /**
    * The metadata of the customer.
@@ -51,7 +51,7 @@ export const customerSchema = schema<Customer>()(
     id: z.string(),
     email: z.string().email(),
     name: z.string(),
-    phone: z.string(),
+    phone: z.string().nullable(),
     metadata: metadataSchema.optional(),
     custom_fields: z.record(z.string(), z.unknown()).optional(),
     created_at: z.date(),
@@ -78,6 +78,7 @@ export interface CreateCustomerParams<
     Pick<Customer, 'email' | 'name' | 'phone' | 'metadata'>,
     {
       name?: string;
+      phone?: string | null;
       billing: BillingInfo | null;
       provider_metadata?: TProviderMetadata;
     }
@@ -86,14 +87,14 @@ export interface CreateCustomerParams<
 export interface CreateCustomerParams1
   extends OverrideProps<
     Pick<Customer, 'email' | 'name' | 'phone' | 'metadata'>,
-    { name?: string; billing: BillingInfo | null }
+    { name?: string; phone?: string | null; billing: BillingInfo | null }
   > {}
 
 export const createCustomerSchema = schema<CreateCustomerParams>()(
   z.object({
     email: z.string().email(),
     name: z.string().optional(),
-    phone: z.string(),
+    phone: z.string().nullable().optional(),
     metadata: metadataSchema.optional(),
     billing: billingSchema.nullable(),
     provider_metadata: z.record(z.string(), z.unknown()).optional(),

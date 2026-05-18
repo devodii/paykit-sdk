@@ -16,8 +16,8 @@ interface Customer {
   /** The full name of the customer. */
   name: string;
 
-  /** The phone number of the customer. */
-  phone: string;
+  /** The phone number of the customer. . */
+  phone: string | null;
 
   /** Arbitrary key-value metadata attached to the customer. */
   metadata?: Record<string, string>;
@@ -28,7 +28,7 @@ interface Customer {
   /** When the customer was created. */
   created_at: Date;
 
-  /** When the customer was last updated. Null if never updated. */
+  /** When the customer was last updated.  */
   updated_at: Date | null;
 }
 
@@ -53,13 +53,13 @@ interface Checkout {
   /** The unique identifier of the checkout session. */
   id: string;
 
-  /** The customer linked to this resource. Null if not returned by the provider. */
+  /** The customer linked to this resource. */
   customer: Payee | null;
 
   /** The URL to redirect the customer to for payment. */
   payment_url: string;
 
-  /** Arbitrary key-value metadata attached to the session. Null if none. */
+  /** Arbitrary key-value metadata attached to the session. */
   metadata: Record<string, string> | null;
 
   /** Whether this is a one-time payment or recurring subscription. */
@@ -103,7 +103,7 @@ interface Subscription {
   /** The unique identifier of the subscription. */
   id: string;
 
-  /** The customer linked to this resource. Null if not returned by the provider. */
+  /** The customer linked to this resource. */
   customer: Payee | null;
 
   /** Recurring amount in the smallest currency unit. */
@@ -127,16 +127,16 @@ interface Subscription {
   /** How often the subscription renews. Custom intervals use durationMs. */
   billing_interval: SubscriptionBillingInterval;
 
-  /** Arbitrary key-value metadata. Null if none. */
+  /** Arbitrary key-value metadata. */
   metadata: Record<string, string> | null;
 
-  /** Provider-specific or custom fields. Null if none. */
+  /** Provider-specific or custom fields. */
   custom_fields: Record<string, unknown> | null;
 
   /** Whether the subscription requires user action (e.g. 3DS). */
   requires_action: boolean;
 
-  /** Redirect URL if action is required. Null otherwise. */
+  /** Redirect URL if action is required. */
   payment_url: string | null;
 }
 
@@ -164,7 +164,7 @@ interface Payment {
   /** ISO 4217 currency code. */
   currency: string;
 
-  /** The customer linked to this resource. Null if not returned by the provider. */
+  /** The customer linked to this resource. */
   customer: Payee | null;
 
   /**
@@ -189,13 +189,13 @@ interface Payment {
   /** Arbitrary key-value metadata attached to the payment. */
   metadata: Record<string, string>;
 
-  /** The provider item ID linked to this payment. Null if not applicable. */
+  /** The provider item ID linked to this payment. */
   item_id: string | null;
 
   /** Whether the payment is waiting for user action before it can proceed. */
   requires_action: boolean;
 
-  /** URL to redirect the user to if requires_action is true. Null otherwise. */
+  /** URL to redirect the user to if requires_action is true. */
   payment_url: string | null;
 }
 
@@ -215,10 +215,10 @@ interface Refund {
   /** ISO 4217 currency code. */
   currency: string;
 
-  /** Human-readable reason for the refund. Null if not provided. */
+  /** Human-readable reason for the refund */
   reason: string | null;
 
-  /** Arbitrary key-value metadata attached to the refund. Null if none. */
+  /** Arbitrary key-value metadata attached to the refund. */
   metadata: Record<string, string> | null;
 }
 
@@ -239,10 +239,10 @@ interface Invoice {
   /** The unique identifier of the invoice. */
   id: string;
 
-  /** The customer linked to this resource. Null if not returned by the provider. */
+  /** The customer linked to this resource. */
   customer: Payee | null;
 
-  /** The subscription this invoice belongs to. Null for one-time payments. */
+  /** The subscription this invoice belongs to. */
   subscription_id: string | null;
 
   /** Whether this invoice is for a one-time payment or a recurring subscription. */
@@ -257,16 +257,16 @@ interface Invoice {
   /** Current status of the invoice. */
   status: 'paid' | 'open';
 
-  /** ISO 8601 timestamp of when the invoice was paid. Null if unpaid. */
+  /** ISO 8601 timestamp of when the invoice was paid. */
   paid_at: string | null;
 
-  /** Individual line items on the invoice. Null if not provided by the provider. */
+  /** Individual line items on the invoice. */
   line_items: Array<{ id: string; quantity: number }> | null;
 
-  /** Arbitrary key-value metadata. Null if none. */
+  /** Arbitrary key-value metadata. */
   metadata: Record<string, string> | null;
 
-  /** Provider-specific or custom fields. Null if none. */
+  /** Provider-specific or custom fields. */
   custom_fields: Record<string, unknown> | null;
 }
 ```

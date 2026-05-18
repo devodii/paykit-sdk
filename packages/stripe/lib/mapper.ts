@@ -64,7 +64,7 @@ export const Customer$inboundSchema = (
     id: customer.id,
     email: customer.email ?? '',
     name: customer.name ?? '',
-    phone: customer.phone ?? '',
+    phone: customer.phone ?? null,
     metadata: omitInternalMetadata(customer.metadata ?? {}),
     created_at: new Date(customer.created * 1000),
     updated_at: null,

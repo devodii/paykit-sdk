@@ -30,7 +30,7 @@ export interface ICustomer extends Document {
   _id: string;
   email: string;
   name: string;
-  phone: string;
+  phone: string | null;
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -106,7 +106,7 @@ const CustomerSchema = new Schema<ICustomer>(
       index: true,
     },
     name: { type: String, required: true },
-    phone: { type: String, required: true },
+    phone: { type: String, required: false, default: null },
     metadata: { type: Schema.Types.Mixed },
   },
   {

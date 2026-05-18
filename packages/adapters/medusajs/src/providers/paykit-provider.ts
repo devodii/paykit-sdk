@@ -209,7 +209,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
         this.paykit.customers.create({
           email: customer.email,
           name: fullName,
-          phone: (data?.phone as string) ?? '',
+          phone: (data?.phone as string) ?? null,
           billing: billingInfo.data ?? null,
           metadata: {
             [PAYKIT_METADATA_KEY]: JSON.stringify({
@@ -598,7 +598,7 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
       this.paykit.customers.create({
         email: context.customer?.email as string,
         name: fullName,
-        phone: context.customer?.phone as string,
+        phone: context.customer?.phone ?? null,
         billing: billingInfo.data ?? null,
       }),
       'Create Account Holder',

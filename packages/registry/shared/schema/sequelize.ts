@@ -7,7 +7,7 @@ export const initializeSequelize = (sequelize: Sequelize) => {
     declare id: string;
     declare email: string;
     declare name: string;
-    declare phone: string;
+    declare phone: string | null;
     declare metadata?: Record<string, any>;
     declare createdAt: Date;
     declare updatedAt: Date;
@@ -30,7 +30,7 @@ export const initializeSequelize = (sequelize: Sequelize) => {
       },
       phone: {
         type: DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
       metadata: {
         type: DataTypes.JSONB,

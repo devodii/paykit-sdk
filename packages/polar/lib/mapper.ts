@@ -55,7 +55,7 @@ export const Customer$inboundSchema = (
   const phone =
     JSON.parse(
       (customer.metadata?.[PAYKIT_METADATA_KEY] as string) ?? '{}',
-    ).phone ?? '';
+    ).phone ?? null;
 
   return {
     id: customer.id,

@@ -280,6 +280,7 @@ export class StripeProvider
 
     const customer = await this.stripe.customers.create({
       ...params,
+      phone: params.phone ?? undefined,
       name: fullName,
     });
 
@@ -296,6 +297,7 @@ export class StripeProvider
       ...provider_metadata,
       ...rest,
       metadata: stringifyMetadataValues(rest.metadata ?? {}),
+      phone: rest.phone ?? undefined,
     });
 
     return Customer$inboundSchema(customer);

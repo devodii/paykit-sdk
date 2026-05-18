@@ -275,7 +275,7 @@ export class PolarProvider
       metadata: {
         ...metadata,
         [PAYKIT_METADATA_KEY]: JSON.stringify({
-          phone: data?.phone ?? '',
+          phone: data?.phone ?? null,
         }),
       },
       ...data.provider_metadata,

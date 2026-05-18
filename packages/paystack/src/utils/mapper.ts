@@ -38,7 +38,7 @@ export const Customer$inboundSchema = (
     id: data.customer_code,
     email: data.email,
     name: fullName,
-    phone: data.phone ?? '',
+    phone: data.phone ?? null,
     metadata: (data.metadata as Record<string, string>) ?? undefined,
     created_at: new Date(data.created_at),
     updated_at: data.updated_at ? new Date(data.updated_at) : null,
