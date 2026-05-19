@@ -27,7 +27,8 @@
           "providers/paypal",
           "providers/gopay",
           "providers/comgate",
-          "providers/monnify"
+          "providers/monnify",
+          "providers/redsys"
         ]
       },
       {

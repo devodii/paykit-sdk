@@ -1,0 +1,196 @@
+---
+title: Redsys
+description: Redsys inSite provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/redsys
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { redsys } from '@paykit-sdk/redsys';
+
+    export const paykit = new PayKit(redsys());
+    ```
+
+    Required env vars:
+    ```bash
+    REDSYS_MERCHANT_CODE=your-merchant-code
+    REDSYS_TERMINAL=your-terminal-number
+    REDSYS_SECRET_KEY=your-hmac-secret-key
+    REDSYS_TRANSACTION_TYPE=0
+    ```
+
+    `isSandbox` is inferred from `NODE_ENV` — set `NODE_ENV=production` for live mode.
+
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createRedsys } from '@paykit-sdk/redsys';
+
+    export const paykit = new PayKit(
+      createRedsys({
+        merchantCode: 'your-merchant-code',
+        terminal: 'your-terminal-number',
+        secretKey: 'your-hmac-secret-key',
+        isSandbox: true,
+        transactionType: '0', // '0' = immediate capture, '1' = pre-authorization
+      }),
+    );
+    ```
+
+  </Tab>
+</Tabs>
+
+## How it works
+
+Redsys uses an **inSite** iframe flow — customers enter card details directly on your page via secure iframes hosted by Redsys, with no redirect to an external payment page.
+
+1. **`createCheckout`** — generates HMAC-signed merchant parameters for the inSite iframe.
+2. **Frontend loads inSite** — your page loads `redsysV3.js` and renders the card input form.
+3. **User enters card** — Redsys returns an `operationId` via callback.
+4. **`createPayment`** — your backend calls the Redsys REST API with the `operationId` to execute the charge.
+5. **Webhooks** — Redsys POSTs server-side notifications to confirm payment status.
+
+<Warning>
+  Redsys does not support customers, subscriptions, or
+  retrieving/updating checkouts and payments. Capture is only
+  available when `transactionType` is set to `'1'`
+  (pre-authorization).
+</Warning>
+
+Supported currencies: `EUR`, `USD`, `GBP`, `JPY`.
+
+## Frontend integration
+
+After `createCheckout`, the checkout metadata includes everything the inSite iframe needs:
+
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'prod_123',
+  session_type: 'one_time',
+  quantity: 1,
+  metadata: {
+    amount: 2500, // amount in cents
+    currency: 'EUR',
+  },
+});
+
+const {
+  redsys_merchant_params,
+  redsys_signature,
+  redsys_signature_version,
+  redsys_merchant_code,
+  redsys_terminal,
+} = checkout.metadata;
+```
+
+Load the Redsys inSite script and render the form:
+
+```html
+<!-- Sandbox -->
+<script src="https://sis-t.REDsys.es:25443/sis/rest/register/v2/redsysV3.js"></script>
+<!-- Production -->
+<script src="https://sis.redsys.es/sis/rest/register/v2/redsysV3.js"></script>
+
+<div id="card-form"></div>
+
+<script>
+  getInSiteForm(
+    'card-form', // container element ID
+    {}, // button styles
+    {}, // body styles
+    {}, // box styles
+    {}, // input styles
+    'Pay now', // button text
+    async operationId => {
+      // send operationId to your backend
+      await fetch('/api/pay', {
+        method: 'POST',
+        body: JSON.stringify({ operationId }),
+      });
+    },
+    redsys_terminal,
+    orderId, // from checkout.metadata.redsys_merchant_params (decoded)
+  );
+</script>
+```
+
+Then on your backend, pass `operationId` in `provider_metadata`:
+
+```typescript
+await paykit.payments.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'prod_123',
+  amount: 2500,
+  currency: 'EUR',
+  metadata: checkout.metadata, // pass through from createCheckout
+  provider_metadata: {
+    operationId: 'the-operation-id-from-insite',
+  },
+});
+```
+
+## Webhooks
+
+Redsys sends a POST with `Ds_MerchantParameters`, `Ds_Signature`, and `Ds_SignatureVersion`. PayKit verifies the HMAC signature automatically before emitting events.
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.REDSYS_SECRET_KEY! })
+  .on('payment.succeeded', async event => {
+    /* Ds_Response === '0000' or starts with '00' */
+  })
+  .on('payment.failed', async event => {
+    /* any non-success Ds_Response code */
+  });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+Redsys response codes and their PayKit event mappings:
+
+| Ds_Response     | PayKit event emitted |
+| --------------- | -------------------- |
+| `0000` / `00xx` | `payment.succeeded`  |
+| Any other code  | `payment.failed`     |
+
+### Raw Redsys events
+
+Listen for native Redsys webhook data via the `redsys.*` namespace:
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.REDSYS_SECRET_KEY! })
+  .on('redsys.payment.succeeded', async event => {
+    // event.data: { order_id, amount, response_code, customer_id }
+  })
+  .on('redsys.payment.failed', async event => {
+    // event.data: { order_id, response_code, error_message }
+  });
+```
+
+## Refunds
+
+```typescript
+await paykit.refunds.create({
+  payment_id: 'order-id',
+  amount: 2500,
+  metadata: {
+    currency: 'EUR', // required
+  },
+});
+```
+
+The `metadata` passed to `createRefund` must include `currency`. The `orderId` is automatically extracted from the payment's stored metadata.
