@@ -1,6 +1,6 @@
 {
   "name": "@paykit-sdk/redsys",
-  "version": "0.0.1",
+  "version": "1.0.1",
   "description": "Redsys inSite provider for PayKit",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -18,25 +18,27 @@
     "typescript",
     "insite"
   ],
-  "author": "Juan Soler",
+  "author": "Emmanuel Odii",
+  "contributors": [
+    "Juan Soler <https://github.com/juansoler>"
+  ],
   "license": "MIT",
   "peerDependencies": {
-    "@paykit-sdk/core": ">=1.1.102"
+    "@paykit-sdk/core": ">=1.1.103"
   },
   "devDependencies": {
     "@paykit-sdk/core": "workspace:*",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2",
-    "zod": "^3.24.2"
+    "typescript": "^5.9.2"
   },
   "publishConfig": {
     "access": "public"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/juansoler/paykit-sdk.git"
+    "url": "git+https://github.com/usepaykit/paykit-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/juansoler/paykit-sdk/issues"
+    "url": "https://github.com/usepaykit/paykit-sdk/issues"
   }
 }

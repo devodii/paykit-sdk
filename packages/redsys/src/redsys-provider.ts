@@ -3,41 +3,47 @@ import {
   CapturePaymentSchema,
   Checkout,
   CreateCheckoutSchema,
+  createCheckoutSchema,
   CreateCustomerParams,
   CreatePaymentSchema,
+  createPaymentSchema,
   CreateRefundSchema,
+  createRefundSchema,
   CreateSubscriptionSchema,
   Customer,
   HTTPClient,
-  InvalidTypeError,
+  isEmailCustomer,
+  isIdCustomer,
   NotImplementedError,
   OperationFailedError,
+  parseJSON,
+  Payee,
   PAYKIT_METADATA_KEY,
+  paykitEvent$InboundSchema,
   PayKitProvider,
+  PaykitProviderOptions,
   Payment,
   ProviderMetadataRegistry,
+  ProviderNotSupportedError,
   Refund,
   ResourceNotFoundError,
   schema,
+  Schema,
+  stringifyMetadataValues,
+  UpdateCheckoutSchema,
   UpdateCustomerParams,
   UpdatePaymentSchema,
+  UpdateSubscriptionSchema,
+  validateRequiredKeys,
   ValidationError,
+  WebhookError,
+  WebhookEvent,
   WebhookEventPayload,
   WebhookHandlerConfig,
-  WebhookError,
-  createCheckoutSchema,
-  createCustomerSchema,
-  createPaymentSchema,
-  createRefundSchema,
-  isEmailCustomer,
-  isIdCustomer,
-  parseCustomerName,
-  stringifyMetadataValues,
 } from '@paykit-sdk/core';
 import { createHmac, randomBytes } from 'crypto';
-import { z } from 'zod';
 
-export interface RedsysOptions {
+export interface RedsysOptions extends PaykitProviderOptions {
   /**
    * Redsys merchant code (Ds_Merchant_MerchantCode)
    */
@@ -50,11 +56,6 @@ export interface RedsysOptions {
    * Secret key for HMAC-SHA256 signing (from Redsys backend)
    */
   secretKey: string;
-  /**
-   * Sandbox or production environment
-   * @default 'sandbox'
-   */
-  environment?: 'sandbox' | 'production';
   /**
    * Transaction type: "0" = immediate capture, "1" = pre-authorization
    * @default "0"
@@ -92,13 +93,14 @@ interface RedsysMetadata extends ProviderMetadataRegistry {
 }
 
 const RedsysOptionsSchema = schema<RedsysOptions>()(
-  z.object({
-    merchantCode: z.string().min(1),
-    terminal: z.string().min(1),
-    secretKey: z.string().min(1),
-    environment: z.enum(['sandbox', 'production']).default('sandbox'),
-    transactionType: z.enum(['0', '1']).default('0'),
-    redsysUrl: z.string().optional(),
+  Schema.object({
+    merchantCode: Schema.string().min(1),
+    terminal: Schema.string().min(1),
+    secretKey: Schema.string().min(1),
+    isSandbox: Schema.boolean(),
+    transactionType: Schema.enum(['0', '1']).optional(),
+    redsysUrl: Schema.string().optional(),
+    debug: Schema.boolean().optional(),
   }),
 );
 
@@ -126,7 +128,7 @@ const RESPONSE_CODES: Record<string, string> = {
 };
 
 type RedsysRawEvents = {
-  [K in `redsys.${string}`]: never;
+  [K in `redsys.${string}`]: Record<string, unknown>;
 };
 
 export class RedsysProvider
@@ -136,9 +138,12 @@ export class RedsysProvider
   private readonly opts: RedsysOptions;
   private readonly _client: HTTPClient;
 
+  readonly isSandbox: boolean;
+
   constructor(opts: RedsysOptions) {
     super(RedsysOptionsSchema, opts, PROVIDER_NAME);
     this.opts = opts;
+    this.isSandbox = opts.isSandbox ?? false;
     this._client = new HTTPClient({
       baseUrl: this._getRedsysUrl(),
       headers: { 'Content-Type': 'application/json' },
@@ -152,13 +157,13 @@ export class RedsysProvider
     throw new NotImplementedError(
       'Native SDK not available for Redsys. Use inSite iframe.',
       this.providerName,
-      { reason: 'Redsys does not provide a JS SDK' },
+      { futureSupport: true },
     );
   }
 
   private _getRedsysUrl(): string {
     if (this.opts.redsysUrl) return this.opts.redsysUrl;
-    return this.opts.environment === 'production'
+    return this.opts.isSandbox
       ? 'https://sis.redsys.es/sis/realizarPago'
       : 'https://sis-t.REDsys.es:25443/sis/realizarPago';
   }
@@ -174,7 +179,11 @@ export class RedsysProvider
   /**
    * Build the Base64-encoded merchant parameters for inSite
    */
-  private _buildMerchantParams(orderId: string, amount: number, currency: string): string {
+  private _buildMerchantParams(
+    orderId: string,
+    amount: number,
+    currency: string,
+  ): string {
     const currencyNum = this._getCurrencyNum(currency);
     const params: Record<string, string> = {
       DS_MERCHANT_MERCHANTCODE: this.opts.merchantCode,
@@ -200,10 +209,15 @@ export class RedsysProvider
    */
   private _sign(orderId: string, base64Params: string): string {
     const data = base64Params + orderId;
-    return createHmac('sha256', Buffer.from(this.opts.secretKey, 'base64'))
+    return createHmac(
+      'sha256',
+      Buffer.from(this.opts.secretKey, 'base64'),
+    )
       .update(data)
       .digest('base64')
-      .replace(/\+/g, '-').replace(/\//g, '/').replace(/=+$/, '');
+      .replace(/\+/g, '-')
+      .replace(/\//g, '/')
+      .replace(/=+$/, '');
   }
 
   /**
@@ -217,26 +231,41 @@ export class RedsysProvider
   ): Promise<Checkout> => {
     const { error, data } = createCheckoutSchema.safeParse(params);
     if (error) {
-      throw ValidationError.fromZodError(error, this.providerName, 'createCheckout');
+      throw ValidationError.fromZodError(
+        error,
+        this.providerName,
+        'createCheckout',
+      );
     }
 
-    // Use orderId from metadata if provided, otherwise generate
-    const orderId = data.metadata?.orderId ?? this._generateOrderId();
-    const currency = data.currency ?? 'EUR';
-    const amount = Math.round(data.amount);
+    const { amount: rawAmount, currency = 'EUR' } =
+      validateRequiredKeys(
+        ['amount', 'currency'],
+        data.metadata ?? {},
+        'The following fields must be present in the metadata of createCheckout: {keys}',
+      );
 
-    const merchantParams = this._buildMerchantParams(orderId, amount, currency);
+    const orderId = data.metadata?.orderId ?? this._generateOrderId();
+    const amount = Math.round(Number(rawAmount));
+
+    const merchantParams = this._buildMerchantParams(
+      orderId,
+      amount,
+      currency,
+    );
+
     const signature = this._sign(orderId, merchantParams);
 
-    // Return a "checkout" with the inSite parameters
-    // The payment_url points to Redsys inSite URL
+    let customer: Payee | null = null;
+    if (isIdCustomer(data.customer)) {
+      customer = { id: data.customer.id };
+    } else if (isEmailCustomer(data.customer)) {
+      customer = { email: data.customer.email };
+    }
+
     return {
       id: `redsys_${orderId}`,
-      customer: data.customer
-        ? typeof data.customer === 'string'
-          ? { id: data.customer }
-          : data.customer
-        : null,
+      customer,
       session_type: 'one_time',
       payment_url: this._getRedsysUrl(),
       products: [{ id: data.item_id, quantity: data.quantity }],
@@ -257,17 +286,22 @@ export class RedsysProvider
   };
 
   retrieveCheckout = async (id: string): Promise<Checkout> => {
-    // Redsys doesn't have a checkout retrieval API
-    throw new ResourceNotFoundError('checkout', id, this.providerName);
+    throw new ResourceNotFoundError(
+      'checkout',
+      id,
+      this.providerName,
+    );
   };
 
   updateCheckout = async (
     id: string,
-    _params: Parameters<typeof import('@paykit-sdk/core')['updateCheckoutSchema']>[0],
+    _params: UpdateCheckoutSchema<RedsysMetadata['checkout']>,
   ): Promise<Checkout> => {
-    throw new NotImplementedError('updateCheckout', this.providerName, {
-      futureSupport: true,
-    });
+    throw new NotImplementedError(
+      'updateCheckout',
+      this.providerName,
+      { futureSupport: true },
+    );
   };
 
   deleteCheckout = async (_id: string): Promise<null> => {
@@ -286,28 +320,47 @@ export class RedsysProvider
   ): Promise<Payment> => {
     const { error, data } = createPaymentSchema.safeParse(params);
     if (error) {
-      throw ValidationError.fromZodError(error, this.providerName, 'createPayment');
+      throw ValidationError.fromZodError(
+        error,
+        this.providerName,
+        'createPayment',
+      );
     }
 
-    const operationId = data.provider_metadata?.operationId;
+    const operationId = data.provider_metadata?.operationId as string;
+
     if (!operationId) {
       throw new ValidationError(
         'operationId is required for Redsys inSite payments. Pass it in provider_metadata.operationId.',
-        this.providerName,
-        { field: 'operationId' },
+        {
+          provider: this.providerName,
+          method: 'createPayment',
+          field: 'operationId',
+        },
       );
     }
 
     // Extract orderId from metadata
     const metadataItem = JSON.parse(
-      (data.metadata as Record<string, string>)?.[PAYKIT_METADATA_KEY] ?? '{}',
+      (data.metadata as Record<string, string>)?.[
+        PAYKIT_METADATA_KEY
+      ] ?? '{}',
     );
+
     const orderId = metadataItem.orderId;
 
     // Execute the payment via Redsys REST API
-    const result = await this._executePayment(orderId, operationId, data.amount, data.currency);
+    const result = await this._executePayment(
+      orderId,
+      operationId,
+      Number(data.amount),
+      String(data.currency),
+    );
 
-    if (result.Ds_Response === '0000' || String(result.Ds_Response).startsWith('00')) {
+    if (
+      result.Ds_Response === '0000' ||
+      String(result.Ds_Response).startsWith('00')
+    ) {
       return {
         id: result.Ds_AuthorisationCode
           ? `${orderId}_${result.Ds_AuthorisationCode}`
@@ -330,7 +383,7 @@ export class RedsysProvider
     throw new OperationFailedError(
       `Payment failed: ${RESPONSE_CODES[String(result.Ds_Response)] ?? `Code ${result.Ds_Response}`}`,
       this.providerName,
-      { cause: result },
+      { cause: new Error(JSON.stringify(result)) },
     );
   };
 
@@ -357,19 +410,20 @@ export class RedsysProvider
       DS_MERCHANT_IDOPERACION: operationId,
     };
 
-    const base64Params = Buffer.from(JSON.stringify(params)).toString('base64');
+    const base64Params = Buffer.from(JSON.stringify(params)).toString(
+      'base64',
+    );
     const signature = this._sign(orderId, base64Params);
 
-    const { ok, data: result } = await this._client.post<Record<string, unknown>>(
-      '/',
-      {
-        body: JSON.stringify({
-          Ds_SignatureVersion: 'HMAC_SHA256_V1',
-          Ds_MerchantParameters: base64Params,
-          Ds_Signature: signature,
-        }),
-      },
-    );
+    const { ok, value: result } = await this._client.post<
+      Record<string, unknown>
+    >('/', {
+      body: JSON.stringify({
+        Ds_SignatureVersion: 'HMAC_SHA256_V1',
+        Ds_MerchantParameters: base64Params,
+        Ds_Signature: signature,
+      }),
+    });
 
     if (!ok || !result) {
       throw new OperationFailedError(
@@ -382,18 +436,24 @@ export class RedsysProvider
   }
 
   retrievePayment = async (id: string): Promise<Payment | null> => {
-    throw new NotImplementedError('retrievePayment', this.providerName, {
-      futureSupport: true,
-    });
+    throw new NotImplementedError(
+      'retrievePayment',
+      this.providerName,
+      {
+        futureSupport: true,
+      },
+    );
   };
 
   updatePayment = async (
     id: string,
-    _params: Parameters<typeof import('@paykit-sdk/core')['updatePaymentSchema']>[0],
+    _params: UpdatePaymentSchema<RedsysMetadata['payment']>,
   ): Promise<Payment> => {
-    throw new NotImplementedError('updatePayment', this.providerName, {
-      futureSupport: true,
-    });
+    throw new NotImplementedError(
+      'updatePayment',
+      this.providerName,
+      { futureSupport: true },
+    );
   };
 
   deletePayment = async (_id: string): Promise<null> => {
@@ -406,10 +466,13 @@ export class RedsysProvider
   ): Promise<Payment> => {
     if (this.opts.transactionType === '1') {
       // Pre-authorization capture
-      throw new NotImplementedError('capturePayment', this.providerName, {
-        futureSupport: true,
-      });
+      throw new NotImplementedError(
+        'capturePayment',
+        this.providerName,
+        { futureSupport: true },
+      );
     }
+
     throw new NotImplementedError(
       'capturePayment only available for pre-authorization (transactionType=1)',
       this.providerName,
@@ -417,37 +480,24 @@ export class RedsysProvider
   };
 
   cancelPayment = async (id: string): Promise<Payment> => {
-    throw new NotImplementedError('cancelPayment', this.providerName, {
-      futureSupport: true,
-    });
+    throw new NotImplementedError(
+      'cancelPayment',
+      this.providerName,
+      { futureSupport: true },
+    );
   };
 
   createCustomer = async (
     params: CreateCustomerParams<RedsysMetadata['customer']>,
   ): Promise<Customer> => {
-    const { error, data } = createCustomerSchema.safeParse(params);
-    if (error) {
-      throw ValidationError.fromZodError(error, this.providerName, 'createCustomer');
-    }
-
-    const { fullName } = parseCustomerName({
-      name: data.name,
-      email: data.email,
+    throw new ProviderNotSupportedError('createCustomer', 'gopay', {
+      reason: "Redsys doesn't support creating customers",
     });
-
-    return {
-      id: `redsys_cust_${randomBytes(4).toString('hex')}`,
-      email: data.email,
-      name: fullName,
-      phone: data.phone ?? '',
-      metadata: {},
-      created_at: new Date(),
-      updated_at: null,
-      custom_fields: null,
-    };
   };
 
-  retrieveCustomer = async (_id: string): Promise<Customer | null> => {
+  retrieveCustomer = async (
+    _id: string,
+  ): Promise<Customer | null> => {
     return null;
   };
 
@@ -455,9 +505,11 @@ export class RedsysProvider
     id: string,
     _params: UpdateCustomerParams<RedsysMetadata['customer']>,
   ): Promise<Customer> => {
-    throw new NotImplementedError('updateCustomer', this.providerName, {
-      futureSupport: true,
-    });
+    throw new NotImplementedError(
+      'updateCustomer',
+      this.providerName,
+      { futureSupport: true },
+    );
   };
 
   deleteCustomer = async (_id: string): Promise<null> => {
@@ -476,7 +528,7 @@ export class RedsysProvider
 
   updateSubscription = async (
     _id: string,
-    _params: Parameters<typeof import('@paykit-sdk/core')['updateSubscriptionSchema']>[0],
+    _params: UpdateSubscriptionSchema<RedsysMetadata['subscription']>,
   ): Promise<never> => {
     return this._notSupported('updateSubscription');
   };
@@ -494,27 +546,42 @@ export class RedsysProvider
   ): Promise<Refund> => {
     const { error, data } = createRefundSchema.safeParse(params);
     if (error) {
-      throw ValidationError.fromZodError(error, this.providerName, 'createRefund');
+      throw ValidationError.fromZodError(
+        error,
+        this.providerName,
+        'createRefund',
+      );
     }
+
+    const { currency = 'EUR' } = validateRequiredKeys(
+      ['currency'],
+      data.metadata ?? {},
+      'The following fields must be present in the metadata of createRefund: {keys}',
+    );
 
     // Refund via Redsys REST API
     const metadataItem = JSON.parse(
-      (data.metadata as Record<string, string>)?.[PAYKIT_METADATA_KEY] ?? '{}',
+      (data.metadata as Record<string, string>)?.[
+        PAYKIT_METADATA_KEY
+      ] ?? '{}',
     );
     const orderId = metadataItem.orderId;
 
     if (!orderId) {
       throw new ValidationError(
         'orderId not found in payment metadata',
-        this.providerName,
-        { field: 'orderId' },
+        {
+          provider: this.providerName,
+          method: 'createRefund',
+          field: 'orderId',
+        },
       );
     }
 
     const result = await this._refundPayment(
       orderId,
       data.amount,
-      data.currency,
+      currency,
     );
 
     const code = String(result.Ds_Response ?? result.Ds_Restock);
@@ -522,7 +589,7 @@ export class RedsysProvider
       return {
         id: `refund_${randomBytes(4).toString('hex')}`,
         amount: data.amount,
-        currency: data.currency,
+        currency,
         reason: 'refund',
         metadata: {},
       };
@@ -531,7 +598,7 @@ export class RedsysProvider
     throw new OperationFailedError(
       `Refund failed: ${RESPONSE_CODES[code] ?? `Code ${code}`}`,
       this.providerName,
-      { cause: result },
+      { cause: new Error(JSON.stringify(result)) },
     );
   };
 
@@ -551,19 +618,20 @@ export class RedsysProvider
       DS_MERCHANT_TRANSACTIONTYPE: '3', // Refund
     };
 
-    const base64Params = Buffer.from(JSON.stringify(params)).toString('base64');
+    const base64Params = Buffer.from(JSON.stringify(params)).toString(
+      'base64',
+    );
     const signature = this._sign(orderId, base64Params);
 
-    const { ok, data: result } = await this._client.post<Record<string, unknown>>(
-      '/',
-      {
-        body: JSON.stringify({
-          Ds_SignatureVersion: 'HMAC_SHA256_V1',
-          Ds_MerchantParameters: base64Params,
-          Ds_Signature: signature,
-        }),
-      },
-    );
+    const { ok, value: result } = await this._client.post<
+      Record<string, unknown>
+    >('/', {
+      body: JSON.stringify({
+        Ds_SignatureVersion: 'HMAC_SHA256_V1',
+        Ds_MerchantParameters: base64Params,
+        Ds_Signature: signature,
+      }),
+    });
 
     if (!ok || !result) {
       throw new OperationFailedError(
@@ -587,15 +655,22 @@ export class RedsysProvider
     payload: WebhookHandlerConfig,
     _webhookSecret: string,
   ): Promise<Array<WebhookEventPayload<RedsysRawEvents>>> => {
-    const { dataAsObject } = payload;
+    const { body } = payload;
+
+    const dataAsObject = JSON.parse(body) as Record<string, unknown>;
 
     // Decode merchant parameters
     const paramsBase64 = dataAsObject.Ds_MerchantParameters as string;
+
     if (!paramsBase64) {
-      throw new WebhookError('Missing Ds_MerchantParameters', this.providerName);
+      throw new WebhookError('Missing Ds_MerchantParameters', {
+        provider: this.providerName,
+      });
     }
 
-    const paramsJson = Buffer.from(paramsBase64, 'base64').toString('utf-8');
+    const paramsJson = Buffer.from(paramsBase64, 'base64').toString(
+      'utf-8',
+    );
     const params = JSON.parse(paramsJson);
 
     const dsResponse = String(params.Ds_Response ?? '');
@@ -609,40 +684,43 @@ export class RedsysProvider
     const sigOk = signature === expectedSig;
 
     if (!sigOk) {
-      throw new WebhookError('Invalid Redsys webhook signature', this.providerName);
+      throw new WebhookError('Invalid Redsys webhook signature', {
+        provider: this.providerName,
+      });
     }
 
     const events: Array<WebhookEventPayload<RedsysRawEvents>> = [];
 
     if (dsResponse === '0000' || dsResponse.startsWith('00')) {
-      // Parse customer from MerchantData
-      let customerId: string | null = null;
-      if (dsMerchantData) {
-        try {
-          const merchantDataObj = JSON.parse(
-            Buffer.from(dsMerchantData, 'base64').toString('utf-8'),
-          );
-          customerId = merchantDataObj.customerId ?? null;
-        } catch {
-          // ignore
-        }
-      }
+      const customerId =
+        parseJSON(
+          Buffer.from(dsMerchantData, 'base64').toString('utf-8'),
+          Schema.object({
+            customerId: Schema.string().optional(),
+          }),
+        )?.customerId ?? null;
 
       const amountNum = Number(dsAmount) / 100;
       const paymentId = `${dsOrder}_${params.Ds_AuthorisationCode ?? 'unknown'}`;
 
+      const t = [];
       events.push(
         {
-          event: 'redsys.payment.succeeded' as any,
+          event: 'redsys.payment.succeeded',
           data: {
             order_id: dsOrder,
             amount: amountNum,
             response_code: dsResponse,
             customer_id: customerId,
           },
-        },
-        {
-          event: 'payment.succeeded' as any,
+        } as unknown as WebhookEvent<
+          RedsysRawEvents['redsys.payment.succeeded']
+        >,
+
+        paykitEvent$InboundSchema<Payment>({
+          type: 'payment.succeeded',
+          created: new Date().getTime(),
+          id: randomBytes(8).toString('hex').slice(0, 15),
           data: {
             id: paymentId,
             amount: amountNum,
@@ -654,20 +732,25 @@ export class RedsysProvider
             requires_action: false,
             payment_url: null,
           },
-        },
+        }),
       );
     } else {
       events.push(
         {
-          event: 'redsys.payment.failed' as any,
+          event: 'redsys.payment.failed',
           data: {
             order_id: dsOrder,
             response_code: dsResponse,
-            error_message: RESPONSE_CODES[dsResponse] ?? `Code ${dsResponse}`,
+            error_message:
+              RESPONSE_CODES[dsResponse] ?? `Code ${dsResponse}`,
           },
-        },
-        {
-          event: 'payment.failed' as any,
+        } as unknown as WebhookEvent<
+          RedsysRawEvents['redsys.payment.failed']
+        >,
+        paykitEvent$InboundSchema<Payment>({
+          type: 'payment.failed',
+          created: new Date().getTime(),
+          id: randomBytes(8).toString('hex').slice(0, 15),
           data: {
             id: dsOrder,
             amount: Number(dsAmount) / 100,
@@ -679,7 +762,7 @@ export class RedsysProvider
             requires_action: false,
             payment_url: null,
           },
-        },
+        }),
       );
     }
 
@@ -687,8 +770,10 @@ export class RedsysProvider
   };
 
   private _notSupported(method: string): never {
-    throw new NotImplementedError(method, this.providerName, {
-      reason: `Redsys does not support ${method}`,
-    });
+    throw new NotImplementedError(
+      `Redsys doesn't support ${method}`,
+      this.providerName,
+      { futureSupport: true },
+    );
   }
 }

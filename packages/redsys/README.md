@@ -38,11 +38,11 @@ export const endpoints = createEndpointHandlers(paykit);
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `REDSYS_MERCHANT_CODE` | Your Redsys merchant code |
-| `REDSYS_TERMINAL` | Terminal number |
-| `REDSYS_SECRET_KEY` | HMAC-SHA256 secret key from Redsys backend |
+| Variable                  | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `REDSYS_MERCHANT_CODE`    | Your Redsys merchant code                      |
+| `REDSYS_TERMINAL`         | Terminal number                                |
+| `REDSYS_SECRET_KEY`       | HMAC-SHA256 secret key from Redsys backend     |
 | `REDSYS_TRANSACTION_TYPE` | `"0"` (immediate) or `"1"` (pre-authorization) |
 
 ## Flow
@@ -58,10 +58,10 @@ export const endpoints = createEndpointHandlers(paykit);
 The `createCheckout` response includes inSite parameters in metadata:
 
 ```typescript
-const checkout = await paykit.createCheckout(params);
+const checkout = await paykit.checkouts.create(params);
 
 // These fields from checkout.metadata are needed for inSite:
-const { 
+const {
   redsys_merchant_params,
   redsys_signature,
   redsys_signature_version,
@@ -78,15 +78,15 @@ Load the Redsys inSite script and initialize:
 <script>
   // After checkout is created:
   getInSiteForm(
-    'card-form',           // container ID
-    {},                    // button styles
-    {},                    // body styles
-    {},                    // box styles
-    {},                    // input styles
-    'Pay now',             // button text (HTML encoded)
-    callbackFunction,       // callback with operationId
+    'card-form', // container ID
+    {}, // button styles
+    {}, // body styles
+    {}, // box styles
+    {}, // input styles
+    'Pay now', // button text (HTML encoded)
+    callbackFunction, // callback with operationId
     terminal,
-    orderId
+    orderId,
   );
 </script>
 ```
