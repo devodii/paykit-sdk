@@ -4,6 +4,9 @@
   "description": "Custom provider for PayKit",
   "main": "index.js",
   "private": true,
+  "paykit": {
+    "type": "provider"
+  },
   "scripts": {},
   "keywords": [],
   "author": "Emmanuel Odii",

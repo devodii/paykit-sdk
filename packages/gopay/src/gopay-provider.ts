@@ -115,6 +115,7 @@ export class GoPayProvider
   implements PayKitProvider<GoPayMetadata, null, GoPayRawEvents>
 {
   readonly providerName = providerName;
+  readonly providerVersion = process.env.PROVIDER_VERSION!;
 
   private _client: HTTPClient;
   private baseUrl: string;

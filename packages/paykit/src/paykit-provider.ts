@@ -47,6 +47,8 @@ export interface PayKitProvider<
 
   readonly isSandbox: boolean;
 
+  readonly providerVersion: string;
+
   /**
    * ESCAPE HATCH: Access the underlying SDK (Stripe, Adyen, etc.) directly.
    * This allows devs to use features we haven't mapped yet without leaving the ecosystem.
@@ -116,6 +118,8 @@ export interface PayKitProvider<
 }
 
 export class AbstractPayKitProvider {
+  readonly providerVersion: string = process.env.PROVIDER_VERSION!;
+
   protected constructor(
     schema: z.ZodType<Record<string, unknown>>,
     options: unknown,

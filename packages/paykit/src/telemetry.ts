@@ -25,6 +25,18 @@ export interface TelemetryEvent {
    * The metadata of the event
    */
   metadata?: Record<string, any>;
+  /**
+   * The version of the provider package (e.g. @paykit-sdk/stripe version)
+   */
+  provider_version?: string;
+  /**
+   * The adapter name if PayKit is used through a framework adapter (e.g. "medusajs")
+   */
+  adapter?: string;
+  /**
+   * The version of the adapter package
+   */
+  adapter_version?: string;
 }
 
 export class Telemetry {

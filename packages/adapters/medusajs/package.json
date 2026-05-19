@@ -15,6 +15,9 @@
   "files": [
     "dist"
   ],
+  "paykit": {
+    "type": "adapter"
+  },
   "scripts": {
     "build": "tsup"
   },

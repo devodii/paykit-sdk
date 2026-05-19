@@ -12,6 +12,9 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "paykit": {
+    "type": "provider"
+  },
   "files": [
     "dist"
   ],

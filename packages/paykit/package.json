@@ -15,6 +15,9 @@
   "files": [
     "dist"
   ],
+  "paykit": {
+    "type": "core"
+  },
   "scripts": {
     "build": "tsup "
   },

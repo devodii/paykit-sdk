@@ -11,6 +11,9 @@
   "scripts": {
     "build": "tsup"
   },
+  "paykit": {
+    "type": "provider"
+  },
   "keywords": [
     "polar",
     "paykit",

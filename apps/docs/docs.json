@@ -20,7 +20,6 @@
       {
         "group": "Providers",
         "pages": [
-          "providers/overview",
           "providers/stripe",
           "providers/paystack",
           "providers/polar",

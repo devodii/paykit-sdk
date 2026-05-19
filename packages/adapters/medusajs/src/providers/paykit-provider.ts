@@ -34,6 +34,7 @@ import {
 } from '@medusajs/framework/utils';
 import {
   PayKit,
+  PayKitAdapterMetadata,
   PaymentStatus,
   tryCatchAsync,
   validateRequiredKeys,
@@ -86,6 +87,11 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
    */
   static identifier = 'paykit';
 
+  private static readonly adapterMetadata: PayKitAdapterMetadata = {
+    name: 'medusajs',
+    version: process.env.ADAPTER_VERSION!,
+  };
+
   protected readonly paykit: PayKit<
     PaykitMedusaJSAdapterOptions['provider']
   >;
@@ -115,7 +121,10 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
   ) {
     super(cradle, options);
     this.options = options;
-    this.paykit = new PayKit(options.provider);
+    this.paykit = new PayKit(
+      options.provider,
+      PaykitMedusaJSAdapter.adapterMetadata,
+    );
 
     if (this.options.debug) {
       console.info(

@@ -50,3 +50,18 @@ export const providerSchema = z.custom<PayKitProvider>(
       'Invalid PayKit provider: Missing implementation for required methods.',
   },
 );
+
+export const payKitAdapterMetadataSchema = z.object({
+  /**
+   * The name of the adapter
+   */
+  name: z.string(),
+  /**
+   * The version of the adapter
+   */
+  version: z.string(),
+});
+
+export type PayKitAdapterMetadata = z.infer<
+  typeof payKitAdapterMetadataSchema
+>;

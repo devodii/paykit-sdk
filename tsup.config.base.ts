@@ -9,6 +9,8 @@ export function createTsupConfig(
     readFileSync(join(process.cwd(), 'package.json'), 'utf8'),
   );
 
+  const type = pkg?.paykit?.type || 'unknown';
+
   return defineConfig({
     entry: ['src/**/*.ts'],
     format: ['cjs', 'esm'],
@@ -18,7 +20,15 @@ export function createTsupConfig(
     treeshake: true,
     outDir: 'dist',
     define: {
-      'process.env.SDK_VERSION': JSON.stringify(pkg.version),
+      ...(type === 'core' && {
+        'process.env.SDK_VERSION': JSON.stringify(pkg.version),
+      }),
+      ...((type === 'provider' || type === 'unknown') && {
+        'process.env.PROVIDER_VERSION': JSON.stringify(pkg.version),
+      }),
+      ...(type === 'adapter' && {
+        'process.env.ADAPTER_VERSION': JSON.stringify(pkg.version),
+      }),
     },
     outExtension({ format }) {
       return {

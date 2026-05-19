@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { PayKitProvider } from './paykit-provider';
-import { providerSchema } from './provider-schema';
+import {
+  PayKitAdapterMetadata,
+  payKitAdapterMetadataSchema,
+  providerSchema,
+} from './provider-schema';
 import { Telemetry } from './telemetry';
 import { Webhook, WebhookSetupConfig } from './webhook-provider';
 
@@ -11,11 +15,17 @@ export const PAYKIT_METADATA_KEY = '__paykit';
  * @template TNative - The type of the underlying native SDK client
  */
 class PayKit<P extends PayKitProvider<any, any, any>> {
-  constructor(private provider: P) {
+  constructor(
+    private provider: P,
+    private adapterMetadata?: PayKitAdapterMetadata,
+  ) {
     providerSchema.parse(provider);
+    if (this.adapterMetadata) {
+      payKitAdapterMetadataSchema.parse(this.adapterMetadata);
+    }
   }
 
-  private readonly sdkVersion = process.env.SDK_VERSION || '1.0.0';
+  private readonly sdkVersion = process.env.SDK_VERSION!;
 
   /**
    * Access the underlying native SDK (e.g., Stripe, Adyen) directly
@@ -35,6 +45,13 @@ class PayKit<P extends PayKitProvider<any, any, any>> {
         amount: result.amount,
         currency: result.currency,
         status: result.status,
+        provider_version: this.provider.providerVersion,
+        ...(this.adapterMetadata
+          ? {
+              adapter: this.adapterMetadata.name,
+              adapter_version: this.adapterMetadata.version,
+            }
+          : {}),
       },
       this.sdkVersion,
       isLiveMode,
@@ -164,15 +181,15 @@ class PayKit<P extends PayKitProvider<any, any, any>> {
 }
 export { PayKit, PayKitProvider };
 
-export * from './resources';
-export * from './types';
-export * from './tools';
-export * from './webhook-provider';
-export * from './http-client';
 export * from './error';
+export * from './http-client';
+export * from './oauth2-token-manager';
 export * from './paykit-provider';
 export * from './provider-schema';
+export * from './resources';
 export * from './server/create-endpoint-handler';
 export * from './server/endpoints';
-export * from './oauth2-token-manager';
+export * from './tools';
+export * from './types';
+export * from './webhook-provider';
 export { z as Schema };
