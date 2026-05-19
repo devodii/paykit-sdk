@@ -1,5 +1,11 @@
 # @paykit-sdk/ui
 
+## 0.2.0
+
+### Minor Changes
+
+- 11d802e: feat: setup telemetry
+
 ## 0.1.13
 
 ### Patch Changes
