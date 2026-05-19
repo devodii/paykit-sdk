@@ -15,7 +15,7 @@
     "@mdx-js/react": "^3.1.0",
     "@monaco-editor/react": "^4.7.0",
     "@next/mdx": "^15.3.4",
-    "@paykit-sdk/core": "1.1.102",
+    "@paykit-sdk/core": "1.2.0",
     "@paykit-sdk/polar": "1.1.99",
     "@paykit-sdk/react": "1.1.96",
     "@paykit-sdk/stripe": "1.1.104",
