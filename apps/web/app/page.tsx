@@ -84,7 +84,7 @@ const Index = () => {
               Our products
             </h2>
             <p className="text-muted-foreground mt-3 text-lg">
-              Everything we build, in one place.
+              A focused lab for portable payment tools.
             </p>
           </div>
 
