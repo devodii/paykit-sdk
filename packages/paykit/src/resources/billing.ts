@@ -15,7 +15,7 @@ export interface BillingAddress {
   /**
    * Secondary address (apartment, suite, unit, etc.)
    */
-  line2: string;
+  line2?: string;
 
   /**
    * City
@@ -51,7 +51,7 @@ export const billingAddressSchema = schema<BillingAddress>()(
   z.object({
     name: z.string().min(1, 'Recipient name is required'),
     line1: z.string().min(1, 'Address line 1 is required'),
-    line2: z.string().default(''),
+    line2: z.string().default('').optional(),
     city: z.string().min(1, 'City is required'),
     state: z.string().optional(), // Optional because not all countries use states
     postal_code: z.string().min(1, 'Postal code is required'),

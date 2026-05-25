@@ -213,13 +213,15 @@ export class GoPayProvider
       payer: {
         allowed_payment_instruments: ['PAYMENT_CARD', 'BANK_ACCOUNT'],
         default_payment_instrument: 'PAYMENT_CARD',
-        contact: { email: data.customer.email! },
-        ...(data.billing && {
-          city: data.billing.address.city,
-          postal_code: data.billing.address.postal_code,
-          country_code: data.billing.address.country,
-          phone_number: data.billing.address.phone,
-        }),
+        contact: {
+          email: data.customer.email!,
+          ...(data.billing && {
+            city: data.billing.address.city,
+            postal_code: data.billing.address.postal_code,
+            country_code: data.billing.address.country,
+            phone_number: data.billing.address.phone,
+          }),
+        },
       },
       target: { type: 'ACCOUNT', goid: parseInt(this.opts.goId) },
       amount: Number(amount),
@@ -527,7 +529,7 @@ export class GoPayProvider
       },
       target: { type: 'ACCOUNT', goid: parseInt(this.opts.goId) },
       amount: Number(data.amount),
-      currency: data.currency ?? 'CZK',
+      currency: data.currency?.toUpperCase() ?? 'CZK',
       order_number: crypto
         .randomBytes(8)
         .toString('hex')
@@ -718,17 +720,19 @@ export class GoPayProvider
       payer: {
         allowed_payment_instruments: ['PAYMENT_CARD', 'BANK_ACCOUNT'],
         default_payment_instrument: 'PAYMENT_CARD',
-        contact: { email: data.customer.email as string },
-        ...(data.billing && {
-          city: data.billing.address.city,
-          postal_code: data.billing.address.postal_code,
-          country_code: data.billing.address.country,
-          phone_number: data.billing.address.phone,
-        }),
+        contact: {
+          email: data.customer.email as string,
+          ...(data.billing && {
+            city: data.billing.address.city,
+            postal_code: data.billing.address.postal_code,
+            country_code: data.billing.address.country,
+            phone_number: data.billing.address.phone,
+          }),
+        },
       },
       target: { type: 'ACCOUNT', goid: parseInt(this.opts.goId) },
       amount: Number(data.amount),
-      currency: data.currency ?? 'CZK',
+      currency: data.currency?.toUpperCase() ?? 'CZK',
       order_number: crypto
         .randomBytes(8)
         .toString('hex')
