@@ -25,10 +25,6 @@ import {
   UpdateAccountHolderOutput,
   DeleteAccountHolderInput,
   DeleteAccountHolderOutput,
-  ListPaymentMethodsInput,
-  ListPaymentMethodsOutput,
-  SavePaymentMethodInput,
-  SavePaymentMethodOutput,
 } from '@medusajs/framework/types';
 import {
   AbstractPaymentProvider,
@@ -534,54 +530,43 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
       canceled: PaymentActions.CANCELED,
     };
 
-    const processableActions = new Set([
-      PaymentActions.AUTHORIZED,
-      PaymentActions.SUCCESSFUL,
-    ]);
-
-    const buildResult = (
-      action: PaymentActions,
-      sessionId: string | undefined,
-      amount: number | undefined,
-    ): WebhookActionResult => {
-      if (!processableActions.has(action)) return { action };
-      return {
-        action,
-        data: {
-          session_id: sessionId ?? '',
-          amount: amount ?? 0,
-        },
-      };
-    };
-
     const webhook = this.paykit.webhooks
       .setup({ webhookSecret: this.options.webhookSecret })
       .on('payment.created', async event => {
-        result = buildResult(
-          statusMap[event?.data?.status ?? 'pending'],
-          event.data?.metadata?.session_id as string | undefined,
-          event.data?.amount
-            ? event.data.amount * this.options.amountToCentsMultiplier
-            : undefined,
-        );
+        result = {
+          action: statusMap[event?.data?.status ?? 'pending'],
+          data: {
+            session_id: event.data?.metadata?.session_id as string,
+            amount: event.data?.amount
+              ? event.data?.amount *
+                this.options.amountToCentsMultiplier
+              : 0,
+          },
+        };
       })
       .on('payment.updated', async event => {
-        result = buildResult(
-          statusMap[event?.data?.status ?? 'pending'],
-          event.data?.metadata?.session_id as string | undefined,
-          event.data?.amount
-            ? event.data.amount * this.options.amountToCentsMultiplier
-            : undefined,
-        );
+        result = {
+          action: statusMap[event?.data?.status ?? 'pending'],
+          data: {
+            session_id: event.data?.metadata?.session_id as string,
+            amount: event.data?.amount
+              ? event.data?.amount *
+                this.options.amountToCentsMultiplier
+              : 0,
+          },
+        };
       })
       .on('payment.failed', async event => {
-        result = buildResult(
-          PaymentActions.CANCELED,
-          event.data?.metadata?.session_id as string | undefined,
-          event.data?.amount
-            ? event.data.amount * this.options.amountToCentsMultiplier
-            : undefined,
-        );
+        result = {
+          action: PaymentActions.CANCELED,
+          data: {
+            amount: event.data?.amount
+              ? event.data?.amount *
+                this.options.amountToCentsMultiplier
+              : 0,
+            session_id: event.data?.metadata?.session_id as string,
+          },
+        };
       });
 
     await webhook.handle({
@@ -719,74 +704,5 @@ export class PaykitMedusaJSAdapter extends AbstractPaymentProvider<PaykitMedusaJ
     );
 
     return { data: res as unknown as Record<string, unknown> };
-  };
-
-  listPaymentMethods = async (
-    input: ListPaymentMethodsInput,
-  ): Promise<ListPaymentMethodsOutput> => {
-    if (this.options.debug) {
-      console.info('[PayKit] Listing payment methods', input);
-    }
-
-    const customerId = input.context?.account_holder?.data?.id as
-      | string
-      | undefined;
-
-    if (!customerId) return [];
-
-    const methods = await this.exec(
-      this.paykit.payments.listMethods({ customer_id: customerId }),
-      'List Payment Methods',
-      { allowUnsupported: true },
-    );
-
-    return (methods ?? []).map(m => ({
-      id: m.id,
-      data: m as unknown as Record<string, unknown>,
-    }));
-  };
-
-  savePaymentMethod = async (
-    input: SavePaymentMethodInput,
-  ): Promise<SavePaymentMethodOutput> => {
-    if (this.options.debug) {
-      console.info('[PayKit] Saving payment method', input);
-    }
-
-    const customerId = input.context?.account_holder?.data?.id as
-      | string
-      | undefined;
-
-    if (!customerId) {
-      throw new MedusaError(
-        MedusaError.Types.INVALID_DATA,
-        'Account holder ID required to save a payment method',
-      );
-    }
-
-    const paymentId = input.data?.payment_id as string | undefined;
-
-    if (!paymentId) {
-      throw new MedusaError(
-        MedusaError.Types.INVALID_DATA,
-        'payment_id required in data to save a payment method',
-      );
-    }
-
-    const method = await this.exec(
-      this.paykit.payments.saveMethod({
-        payment_id: paymentId,
-        customer_id: customerId,
-      }),
-      'Save Payment Method',
-      { allowUnsupported: true },
-    );
-
-    if (!method) return { id: '', data: {} };
-
-    return {
-      id: method.id,
-      data: method as unknown as Record<string, unknown>,
-    };
   };
 }
