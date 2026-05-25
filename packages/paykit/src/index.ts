@@ -125,6 +125,14 @@ class PayKit<P extends PayKitProvider<any, any, any>> {
 
       delete: (id: string) => this.provider.deletePayment(id),
       cancel: (id: string) => this.provider.cancelPayment(id),
+
+      listMethods: (
+        params: Parameters<P['listPaymentMethods']>[0],
+      ) => this.provider.listPaymentMethods(params),
+
+      saveMethod: (
+        params: Parameters<P['savePaymentMethod']>[0],
+      ) => this.provider.savePaymentMethod(params),
     };
   }
 

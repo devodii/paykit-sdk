@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ConfigurationError } from './error';
+import { ConfigurationError, ProviderNotSupportedError } from './error';
 import {
   Checkout,
   CreateCheckoutSchema,
@@ -13,7 +13,10 @@ import {
 import {
   CapturePaymentSchema,
   CreatePaymentSchema,
+  ListPaymentMethodsParams,
   Payment,
+  PaymentMethod,
+  SavePaymentMethodParams,
   UpdatePaymentSchema,
 } from './resources/payment';
 import { CreateRefundSchema, Refund } from './resources/refund';
@@ -110,6 +113,14 @@ export interface PayKitProvider<
     params: CreateRefundSchema<TMetadata['refund']>,
   ): Promise<Refund>;
 
+  /** Payment methods */
+  listPaymentMethods(
+    params: ListPaymentMethodsParams,
+  ): Promise<PaymentMethod[]>;
+  savePaymentMethod(
+    params: SavePaymentMethodParams,
+  ): Promise<PaymentMethod>;
+
   /** Webhook */
   handleWebhook(
     payload: WebhookHandlerConfig,
@@ -123,18 +134,36 @@ export class AbstractPayKitProvider {
   protected constructor(
     schema: z.ZodType<Record<string, unknown>>,
     options: unknown,
-    providerName: string,
+    protected readonly _providerName: string,
   ) {
     const { error } = schema.safeParse(options);
 
     if (error) {
       throw new ConfigurationError(
-        `Invalid ${providerName} configuration`,
+        `Invalid ${_providerName} configuration`,
         {
-          provider: providerName,
+          provider: _providerName,
           missingKeys: Object.keys(error.flatten().fieldErrors ?? {}),
         },
       );
     }
+  }
+
+  listPaymentMethods(
+    _params: ListPaymentMethodsParams,
+  ): Promise<PaymentMethod[]> {
+    throw new ProviderNotSupportedError(
+      'listPaymentMethods',
+      this._providerName,
+    );
+  }
+
+  savePaymentMethod(
+    _params: SavePaymentMethodParams,
+  ): Promise<PaymentMethod> {
+    throw new ProviderNotSupportedError(
+      'savePaymentMethod',
+      this._providerName,
+    );
   }
 }
