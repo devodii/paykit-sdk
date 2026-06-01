@@ -9,7 +9,6 @@ import {
   UpdateSubscriptionSchema,
   paykitEvent$InboundSchema,
   WebhookEventPayload,
-  PaykitProviderOptions,
   Invoice,
   invoiceStatusSchema,
   billingModeSchema,
@@ -51,6 +50,7 @@ import {
   ProviderMetadataRegistry,
   WebhookHandlerConfig,
   parseCustomerName,
+  PaykitProviderOptions,
 } from '@paykit-sdk/core';
 import Stripe from 'stripe';
 import {
@@ -72,6 +72,7 @@ interface StripeMetadata extends ProviderMetadataRegistry {
 export interface StripeOptions
   extends PaykitProviderOptions,
     Stripe.StripeConfig {
+  /** Stripe secret key (sk_test_... or sk_live_...) */
   apiKey: string;
 }
 
@@ -106,11 +107,13 @@ export class StripeProvider
   constructor(opts: StripeOptions) {
     super(StripeOptions$inboundSchema, opts, providerName);
 
-    const { debug = true, apiKey, ...rest } = opts;
+    const { debug, apiKey, isSandbox, ...stripeConfig } = opts;
 
-    this.stripe = new Stripe(apiKey, rest);
-    this.opts = opts;
-    this.isSandbox = opts.isSandbox;
+    const resolvedSandbox = isSandbox ?? apiKey.includes('_test_');
+
+    this.stripe = new Stripe(apiKey, stripeConfig);
+    this.opts = { ...opts, debug: debug ?? resolvedSandbox };
+    this.isSandbox = resolvedSandbox;
   }
 
   readonly providerName = providerName;

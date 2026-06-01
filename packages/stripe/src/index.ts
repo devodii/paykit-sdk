@@ -12,12 +12,11 @@ export const stripe = () => {
     'Missing required environment variables: {keys}',
   );
 
-  const isSandbox = process.env.NODE_ENV === 'development';
-
   return createStripe({
     apiKey: envVars.STRIPE_API_KEY,
-    isSandbox,
-    debug: isSandbox,
     apiVersion: '2025-07-30.basil',
+    isSandbox:
+      envVars.STRIPE_API_KEY.includes('_test_') ||
+      process.env.NODE_ENV !== 'production',
   });
 };
