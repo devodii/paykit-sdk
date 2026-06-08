@@ -879,11 +879,10 @@ export class GoPayProvider
   };
 
   cancelPayment = async (id: string): Promise<Payment> => {
-    const response =
-      await this._client.post<GoPayPaymentBaseResponse>(
-        `/payments/payment/${id}/void-authorization`,
-        { headers: await this.tokenManager.getAuthHeaders() },
-      );
+    await this._client.post<GoPayPaymentBaseResponse>(
+      `/payments/payment/${id}/void-authorization`,
+      { headers: await this.tokenManager.getAuthHeaders() },
+    );
 
     const payment = await this.retrievePayment(id);
 

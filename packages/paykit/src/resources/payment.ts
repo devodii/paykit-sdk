@@ -133,7 +133,7 @@ export const createPaymentSchema = schema<CreatePaymentSchema>()(
 
 export interface UpdatePaymentSchema<
   TProviderMetadata = Record<string, unknown>,
-> extends Partial<Omit<Payment, 'id' | 'status' | 'item_id'>> {
+> extends Partial<Omit<Payment, 'id' | 'status'>> {
   provider_metadata?: TProviderMetadata;
 }
 

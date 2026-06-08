@@ -122,6 +122,23 @@ export class StripeProvider
     return this.stripe;
   }
 
+  private async _resolvePaymentIntentId(id: string): Promise<string> {
+    if (!id.startsWith('cs_')) return id;
+    const session = await this.stripe.checkout.sessions.retrieve(id);
+    if (!session.payment_intent) {
+      throw new ValidationError(
+        'Checkout Session has no associated PaymentIntent yet',
+        {
+          provider: this.providerName,
+          method: 'resolvePaymentIntentId',
+        },
+      );
+    }
+    return typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent.id;
+  }
+
   createCheckout = async (
     params: CreateCheckoutSchema<StripeMetadata['checkout']>,
   ): Promise<Checkout> => {
@@ -281,10 +298,20 @@ export class StripeProvider
       email: data.email,
     });
 
+    const {
+      billing: _billing,
+      metadata,
+      provider_metadata,
+      name: _name,
+      ...stripeParams
+    } = data;
+
     const customer = await this.stripe.customers.create({
-      ...params,
-      phone: params.phone ?? undefined,
+      ...provider_metadata,
+      ...stripeParams,
+      phone: data.phone ?? undefined,
       name: fullName,
+      metadata: stringifyMetadataValues(metadata ?? {}),
     });
 
     return Customer$inboundSchema(customer);
@@ -294,12 +321,17 @@ export class StripeProvider
     id: string,
     params: UpdateCustomerParams<StripeMetadata['customer']>,
   ): Promise<Customer> => {
-    const { provider_metadata, ...rest } = params;
+    const {
+      provider_metadata,
+      billing: _billing,
+      metadata,
+      ...rest
+    } = params;
 
     const customer = await this.stripe.customers.update(id, {
       ...provider_metadata,
       ...rest,
-      metadata: stringifyMetadataValues(rest.metadata ?? {}),
+      metadata: stringifyMetadataValues(metadata ?? {}),
       phone: rest.phone ?? undefined,
     });
 
@@ -634,7 +666,8 @@ export class StripeProvider
 
     const { provider_metadata, customer, ...rest } = data;
 
-    const payment = await this.stripe.paymentIntents.retrieve(id);
+    const piId = await this._resolvePaymentIntentId(id);
+    const payment = await this.stripe.paymentIntents.retrieve(piId);
 
     const paymentOptions: Stripe.PaymentIntentUpdateParams = {
       ...provider_metadata,
@@ -662,11 +695,11 @@ export class StripeProvider
     }
 
     const updatedPayment = await this.stripe.paymentIntents.update(
-      id,
+      piId,
       paymentOptions,
     );
 
-    return Payment$inboundSchema(updatedPayment);
+    return { ...Payment$inboundSchema(updatedPayment), id };
   };
 
   retrievePayment = async (id: string): Promise<Payment | null> => {
@@ -678,6 +711,52 @@ export class StripeProvider
         this.providerName,
         'retrievePayment',
       );
+    }
+
+    if (data.id.startsWith('cs_')) {
+      const [session, sessionError] = await tryCatchAsync(
+        this.stripe.checkout.sessions.retrieve(data.id, {
+          expand: ['payment_intent'],
+        }),
+      );
+
+      if (
+        !session ||
+        (sessionError as unknown as Stripe.errors.StripeError)
+          ?.code === 'resource_missing'
+      )
+        return null;
+
+      if (
+        session.payment_intent &&
+        typeof session.payment_intent !== 'string'
+      ) {
+        return {
+          ...Payment$inboundSchema(
+            session.payment_intent as Stripe.PaymentIntent,
+          ),
+          id: data.id,
+        };
+      }
+
+      return {
+        id: data.id,
+        amount: session.amount_total ?? 0,
+        currency: session.currency ?? '',
+        customer:
+          typeof session.customer === 'string'
+            ? { id: session.customer }
+            : session.customer?.id
+              ? { id: session.customer.id }
+              : session.customer_email
+                ? { email: session.customer_email }
+                : null,
+        status: 'pending' as const,
+        metadata: omitInternalMetadata(session.metadata ?? {}),
+        item_id: null,
+        requires_action: true,
+        payment_url: session.url,
+      };
     }
 
     const [payment, paymentError] = await tryCatchAsync(
@@ -705,6 +784,11 @@ export class StripeProvider
       );
     }
 
+    if (data.id.startsWith('cs_')) {
+      await this.stripe.checkout.sessions.expire(data.id);
+      return null;
+    }
+
     await this.stripe.paymentIntents.cancel(data.id);
 
     return null;
@@ -724,14 +808,37 @@ export class StripeProvider
       );
     }
 
-    const payment = await this.stripe.paymentIntents.capture(id, {
+    const piId = await this._resolvePaymentIntentId(id);
+    const payment = await this.stripe.paymentIntents.capture(piId, {
       amount_to_capture: data.amount,
     });
 
-    return Payment$inboundSchema(payment);
+    return { ...Payment$inboundSchema(payment), id };
   };
 
   cancelPayment = async (id: string): Promise<Payment> => {
+    if (id.startsWith('cs_')) {
+      const session = await this.stripe.checkout.sessions.expire(id);
+      return {
+        id,
+        amount: session.amount_total ?? 0,
+        currency: session.currency ?? '',
+        customer:
+          typeof session.customer === 'string'
+            ? { id: session.customer }
+            : session.customer?.id
+              ? { id: session.customer.id }
+              : session.customer_email
+                ? { email: session.customer_email }
+                : null,
+        status: 'canceled' as const,
+        metadata: omitInternalMetadata(session.metadata ?? {}),
+        item_id: null,
+        requires_action: false,
+        payment_url: null,
+      };
+    }
+
     const canceledPayment =
       await this.stripe.paymentIntents.cancel(id);
 
@@ -775,10 +882,24 @@ export class StripeProvider
       metadata: stringifyMetadataValues(rest.metadata ?? {}),
     };
 
-    if (data.payment_id.startsWith('pi_')) {
-      stripeRefundOptions.payment_intent = data.payment_id; // payment intent ID (modern API)
+    if (data.payment_id.startsWith('cs_')) {
+      const session = await this.stripe.checkout.sessions.retrieve(
+        data.payment_id,
+      );
+      if (!session.payment_intent) {
+        throw new ValidationError(
+          'Checkout Session has no associated PaymentIntent to refund',
+          { provider: this.providerName, method: 'createRefund' },
+        );
+      }
+      stripeRefundOptions.payment_intent =
+        typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent.id;
+    } else if (data.payment_id.startsWith('pi_')) {
+      stripeRefundOptions.payment_intent = data.payment_id;
     } else {
-      stripeRefundOptions.charge = data.payment_id; // charge ID (legacy API)
+      stripeRefundOptions.charge = data.payment_id; // legacy charge ID
     }
 
     const refund = await this.stripe.refunds.create(
