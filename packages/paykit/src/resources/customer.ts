@@ -87,7 +87,11 @@ export interface CreateCustomerParams<
 export interface CreateCustomerParams1
   extends OverrideProps<
     Pick<Customer, 'email' | 'name' | 'phone' | 'metadata'>,
-    { name?: string; phone?: string | null; billing: BillingInfo | null }
+    {
+      name?: string;
+      phone?: string | null;
+      billing: BillingInfo | null;
+    }
   > {}
 
 export const createCustomerSchema = schema<CreateCustomerParams>()(

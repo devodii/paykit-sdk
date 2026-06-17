@@ -34,7 +34,7 @@ export const StripePaymentButton = ({
   const card = elements?.getElement("card")
 
   const session = cart.payment_collection?.payment_sessions?.find(
-    (s) => s.status === "pending"
+    (s) => s.status === "pending",
   )
 
   const disabled = !stripe || !elements ? true : false

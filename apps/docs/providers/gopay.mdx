@@ -103,28 +103,28 @@ await webhook.handle({
 
 GoPay payment states and their PayKit event mappings:
 
-| GoPay state              | PayKit events emitted                                              |
-| ------------------------ | ------------------------------------------------------------------ |
-| `CREATED`                | `payment.created`                                                  |
-| `PAYMENT_METHOD_CHOSEN`  | `payment.updated`                                                  |
-| `PAID`                   | `payment.succeeded` + `invoice.generated` (+ `subscription.created` if recurring) |
-| `AUTHORIZED`             | `payment.updated`                                                  |
-| `CANCELED`               | `payment.failed` (+ `subscription.canceled` if recurrence STOPPED) |
-| `TIMEOUTED`              | `payment.failed`                                                   |
-| `REFUNDED`               | `refund.created`                                                   |
-| `PARTIALLY_REFUNDED`     | `refund.created`                                                   |
+| GoPay state             | PayKit events emitted                                                             |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `CREATED`               | `payment.created`                                                                 |
+| `PAYMENT_METHOD_CHOSEN` | `payment.updated`                                                                 |
+| `PAID`                  | `payment.succeeded` + `invoice.generated` (+ `subscription.created` if recurring) |
+| `AUTHORIZED`            | `payment.updated`                                                                 |
+| `CANCELED`              | `payment.failed` (+ `subscription.canceled` if recurrence STOPPED)                |
+| `TIMEOUTED`             | `payment.failed`                                                                  |
+| `REFUNDED`              | `refund.created`                                                                  |
+| `PARTIALLY_REFUNDED`    | `refund.created`                                                                  |
 
 ## Subscriptions
 
 GoPay maps PayKit billing intervals to its `recurrence_cycle` field:
 
 | PayKit `billing_interval` | GoPay `recurrence_cycle` |
-| ------------------------- | ------------------------- |
-| `day`                     | `DAY`                     |
-| `week`                    | `WEEK`                    |
-| `month`                   | `MONTH`                   |
-| `year`                    | `ON_DEMAND`               |
-| `custom`                  | `ON_DEMAND`               |
+| ------------------------- | ------------------------ |
+| `day`                     | `DAY`                    |
+| `week`                    | `WEEK`                   |
+| `month`                   | `MONTH`                  |
+| `year`                    | `ON_DEMAND`              |
+| `custom`                  | `ON_DEMAND`              |
 
 `year` and `custom` intervals fall back to `ON_DEMAND` — GoPay does not natively support them. You must trigger each charge manually via GoPay's `createRecurrence` API.
 
@@ -168,7 +168,7 @@ await paykit.subscriptions.create({
   billing_interval: 'month',
   provider_metadata: {
     success_url: 'https://example.com/success', // required
-    description: 'Monthly plan',               // optional
+    description: 'Monthly plan', // optional
   },
 });
 ```

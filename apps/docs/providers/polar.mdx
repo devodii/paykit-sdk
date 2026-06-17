@@ -119,17 +119,17 @@ paykit.webhooks
 
 Polar event to PayKit event mappings:
 
-| Polar event                | PayKit events emitted                       |
-| -------------------------- | ------------------------------------------- |
-| `polar.order.created`      | `payment.created`                           |
-| `polar.order.paid`         | `payment.succeeded` + `invoice.generated`   |
-| `polar.customer.created`   | `customer.created`                          |
-| `polar.customer.updated`   | `customer.updated`                          |
-| `polar.customer.deleted`   | `customer.deleted`                          |
+| Polar event                  | PayKit events emitted                     |
+| ---------------------------- | ----------------------------------------- |
+| `polar.order.created`        | `payment.created`                         |
+| `polar.order.paid`           | `payment.succeeded` + `invoice.generated` |
+| `polar.customer.created`     | `customer.created`                        |
+| `polar.customer.updated`     | `customer.updated`                        |
+| `polar.customer.deleted`     | `customer.deleted`                        |
 | `polar.subscription.created` | `subscription.created`                    |
 | `polar.subscription.updated` | `subscription.updated`                    |
 | `polar.subscription.revoked` | `subscription.canceled`                   |
-| `polar.refund.created`     | `refund.created`                            |
+| `polar.refund.created`       | `refund.created`                          |
 
 ## provider_metadata
 
@@ -160,7 +160,7 @@ await paykit.customers.create({
 
 // updateSubscription.provider_metadata is REQUIRED and must be one of these shapes:
 await paykit.subscriptions.update('sub_123', {
-  provider_metadata: { productId: 'product_456' },   // change product
+  provider_metadata: { productId: 'product_456' }, // change product
 });
 await paykit.subscriptions.update('sub_123', {
   provider_metadata: { discountId: 'discount_789' }, // apply discount

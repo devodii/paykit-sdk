@@ -78,5 +78,5 @@ export const paymentInfoMap = new Proxy(
   {},
   {
     get: (_, id: string) => getProviderConfig(id),
-  }
+  },
 ) as any

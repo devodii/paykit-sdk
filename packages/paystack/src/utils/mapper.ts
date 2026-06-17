@@ -12,6 +12,7 @@ import {
   Schema,
   billingModeSchema,
   parseCustomerName,
+  Payee,
 } from '@paykit-sdk/core';
 import {
   PaystackCustomer,
@@ -81,13 +82,19 @@ export const Payment$inboundSchema = (
 
   const status = paystackStatusMap[data.status] ?? 'pending';
 
+  let customer: Payee | null = null;
+
+  if (data.customer?.email) {
+    customer = { email: data.customer.email };
+  } else if (data.customer?.id) {
+    customer = { id: data.customer.id };
+  }
+
   return {
     id: data.reference,
     amount: data.amount,
     currency: data.currency,
-    customer: data.customer?.email
-      ? { email: data.customer.email }
-      : null,
+    customer,
     status,
     metadata,
     item_id: itemId,
@@ -144,11 +151,16 @@ export const Checkout$inboundSchema = (
     }
   }
 
+  let customer: Payee | null = null;
+  if (transaction.customer?.email) {
+    customer = { email: transaction.customer.email };
+  } else if (transaction.customer?.id) {
+    customer = { id: transaction.customer.id };
+  }
+
   return {
     id: init.reference,
-    customer: transaction.customer?.email
-      ? { email: transaction.customer.email }
-      : null,
+    customer,
     payment_url: init.authorization_url,
     metadata:
       Object.keys(metadata).length > 0

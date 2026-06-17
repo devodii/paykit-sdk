@@ -48,7 +48,7 @@ const PaymentDetails = ({ order }: PaymentDetailsProps) => {
                         amount: payment.amount,
                         currency_code: order.currency_code,
                       })} paid at ${new Date(
-                        payment.created_at ?? ""
+                        payment.created_at ?? "",
                       ).toLocaleString()}`}
                 </Text>
               </div>

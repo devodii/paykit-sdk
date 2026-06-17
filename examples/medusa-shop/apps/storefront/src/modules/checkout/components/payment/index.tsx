@@ -21,7 +21,7 @@ import { getProviderConfig } from "@lib/constant"
 
 function buildPaymentData(
   cart: HttpTypes.StoreCart,
-  pathname: string
+  pathname: string,
 ): Record<string, unknown> {
   const countryCode = pathname.split("/")[1]
   const successUrl = `${window.location.origin}/${countryCode}/order/payment-return?cart_id=${cart.id}`
@@ -40,7 +40,7 @@ const Payment = ({
   availablePaymentMethods: { id: string }[]
 }) => {
   const activeSession = cart.payment_collection?.payment_sessions?.find(
-    (paymentSession) => paymentSession.status === "pending"
+    (paymentSession) => paymentSession.status === "pending",
   )
 
   const [isLoading, setIsLoading] = useState(false)
@@ -48,7 +48,7 @@ const Payment = ({
   const [cardBrand, setCardBrand] = useState<string | null>(null)
   const [cardComplete, setCardComplete] = useState(false)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-    activeSession?.provider_id ?? ""
+    activeSession?.provider_id ?? "",
   )
 
   const searchParams = useSearchParams()
@@ -88,7 +88,7 @@ const Payment = ({
 
       return params.toString()
     },
-    [searchParams]
+    [searchParams],
   )
 
   const handleEdit = () => {
@@ -118,7 +118,7 @@ const Payment = ({
           pathname + "?" + createQueryString("step", "review"),
           {
             scroll: false,
-          }
+          },
         )
       }
     } catch (err) {
@@ -142,7 +142,7 @@ const Payment = ({
             {
               "opacity-50 pointer-events-none select-none":
                 !isOpen && !paymentReady,
-            }
+            },
           )}
         >
           Payment

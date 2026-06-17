@@ -48,9 +48,9 @@ npm install @paykit-sdk/monnify
 Monnify uses OAuth 2.0 client credentials (API key + secret key) to obtain a short-lived access token before every API call. `createCheckout` calls `POST /v1/merchant/transactions/init-transaction` and returns a `checkoutUrl`. After payment, retrieve the transaction status with `retrievePayment(transactionReference)`. Amounts are in the standard currency unit (e.g. Naira for NGN).
 
 <Warning>
-  Monnify does not support customer management, subscriptions, or direct
-  payment creation. Use `createCheckout` and `retrievePayment` for the
-  core payment flow.
+  Monnify does not support customer management, subscriptions, or
+  direct payment creation. Use `createCheckout` and `retrievePayment`
+  for the core payment flow.
 </Warning>
 
 ## Webhooks
@@ -97,21 +97,21 @@ paykit.webhooks
 
 All available raw events and their PayKit mappings:
 
-| Raw event                        | PayKit event          |
-| -------------------------------- | --------------------- |
-| `monnify.SUCCESSFUL_TRANSACTION` | `payment.created`     |
-| `monnify.SUCCESSFUL_TRANSACTION_OFFLINE` | `payment.created` |
-| `monnify.REJECTED_PAYMENT`       | `payment.failed`      |
-| `monnify.SETTLEMENT`             | `payment.updated`     |
-| `monnify.SUCCESSFUL_REFUND`      | `refund.created`      |
-| `monnify.FAILED_REFUND`          | `refund.created`      |
-| `monnify.MANDATE_UPDATE`         | `subscription.created` / `subscription.canceled` / `subscription.updated` |
-| `monnify.CUSTOMER_CREATED`       | _(ignored)_           |
-| `monnify.CUSTOMER_UPDATED`       | _(ignored)_           |
-| `monnify.CUSTOMER_DELETED`       | _(ignored)_           |
-| `monnify.SUCCESSFUL_DISBURSEMENT` | _(ignored)_          |
-| `monnify.FAILED_DISBURSEMENT`    | _(ignored)_           |
-| `monnify.REVERSED_DISBURSEMENT`  | _(ignored)_           |
+| Raw event                                | PayKit event                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| `monnify.SUCCESSFUL_TRANSACTION`         | `payment.created`                                                         |
+| `monnify.SUCCESSFUL_TRANSACTION_OFFLINE` | `payment.created`                                                         |
+| `monnify.REJECTED_PAYMENT`               | `payment.failed`                                                          |
+| `monnify.SETTLEMENT`                     | `payment.updated`                                                         |
+| `monnify.SUCCESSFUL_REFUND`              | `refund.created`                                                          |
+| `monnify.FAILED_REFUND`                  | `refund.created`                                                          |
+| `monnify.MANDATE_UPDATE`                 | `subscription.created` / `subscription.canceled` / `subscription.updated` |
+| `monnify.CUSTOMER_CREATED`               | _(ignored)_                                                               |
+| `monnify.CUSTOMER_UPDATED`               | _(ignored)_                                                               |
+| `monnify.CUSTOMER_DELETED`               | _(ignored)_                                                               |
+| `monnify.SUCCESSFUL_DISBURSEMENT`        | _(ignored)_                                                               |
+| `monnify.FAILED_DISBURSEMENT`            | _(ignored)_                                                               |
+| `monnify.REVERSED_DISBURSEMENT`          | _(ignored)_                                                               |
 
 ## provider_metadata
 
@@ -127,7 +127,7 @@ await paykit.checkouts.create({
   success_url: 'https://example.com/success',
   cancel_url: 'https://example.com/cancel',
   provider_metadata: {
-    amount: 5000,    // in the standard currency unit (e.g. Naira)
+    amount: 5000, // in the standard currency unit (e.g. Naira)
     currency: 'NGN',
   },
 });

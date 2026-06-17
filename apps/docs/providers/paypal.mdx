@@ -51,15 +51,16 @@ In PayPal, an **Order** is both the checkout and the payment. `createCheckout` a
 `PAYPAL_WEBHOOK_SECRET` is the **Webhook ID** from your PayPal dashboard — not a signing secret. PayPal verifies webhooks server-side by calling its own verification API using headers sent with the request.
 
 <Note>
-  PayPal does not support standalone customer management. `createCustomer`,
-  `updateCustomer`, `deleteCustomer`, and `retrieveCustomer` all throw
-  `ProviderNotSupportedError`. Use `payer` information within orders instead.
+  PayPal does not support standalone customer management.
+  `createCustomer`, `updateCustomer`, `deleteCustomer`, and
+  `retrieveCustomer` all throw `ProviderNotSupportedError`. Use
+  `payer` information within orders instead.
 </Note>
 
 <Warning>
-  PayPal metadata is stored as the order's `customId` (JSON-stringified). The
-  combined length of all metadata keys and values must not exceed **127
-  characters** after JSON serialization.
+  PayPal metadata is stored as the order's `customId`
+  (JSON-stringified). The combined length of all metadata keys and
+  values must not exceed **127 characters** after JSON serialization.
 </Warning>
 
 ## Webhooks
@@ -123,29 +124,29 @@ paykit.webhooks
 
 All available raw events:
 
-| PayPal event                                    | PayKit event emitted        |
-| ----------------------------------------------- | --------------------------- |
-| `paypal.CHECKOUT.ORDER.APPROVED`                | `payment.created`           |
-| `paypal.CHECKOUT.ORDER.COMPLETED`               | `payment.succeeded`         |
-| `paypal.PAYMENT.CAPTURE.COMPLETED`              | `payment.succeeded`         |
-| `paypal.PAYMENT.CAPTURE.REFUNDED`               | `refund.created`            |
-| `paypal.BILLING.SUBSCRIPTION.CREATED`           | `subscription.created`      |
-| `paypal.BILLING.SUBSCRIPTION.UPDATED`           | `subscription.updated`      |
-| `paypal.BILLING.SUBSCRIPTION.ACTIVATED`         | `subscription.updated`      |
-| `paypal.BILLING.SUBSCRIPTION.SUSPENDED`         | `subscription.updated`      |
-| `paypal.BILLING.SUBSCRIPTION.CANCELLED`         | `subscription.canceled`     |
-| `paypal.BILLING.SUBSCRIPTION.EXPIRED`           | `subscription.canceled`     |
-| `paypal.PAYMENT.AUTHORIZATION.CREATED`          | _(raw only)_                |
-| `paypal.PAYMENT.AUTHORIZATION.VOIDED`           | _(raw only)_                |
-| `paypal.PAYMENT.CAPTURE.DECLINED`               | _(raw only)_                |
-| `paypal.PAYMENT.CAPTURE.PENDING`                | _(raw only)_                |
-| `paypal.PAYMENT.CAPTURE.REVERSED`               | _(raw only)_                |
-| `paypal.PAYMENT.REFUND.PENDING`                 | _(raw only)_                |
-| `paypal.PAYMENT.REFUND.FAILED`                  | _(raw only)_                |
-| `paypal.BILLING.SUBSCRIPTION.PAYMENT.FAILED`    | _(raw only)_                |
-| `paypal.CUSTOMER.DISPUTE.CREATED`               | _(raw only)_                |
-| `paypal.CUSTOMER.DISPUTE.RESOLVED`              | _(raw only)_                |
-| `paypal.CUSTOMER.DISPUTE.UPDATED`               | _(raw only)_                |
+| PayPal event                                 | PayKit event emitted    |
+| -------------------------------------------- | ----------------------- |
+| `paypal.CHECKOUT.ORDER.APPROVED`             | `payment.created`       |
+| `paypal.CHECKOUT.ORDER.COMPLETED`            | `payment.succeeded`     |
+| `paypal.PAYMENT.CAPTURE.COMPLETED`           | `payment.succeeded`     |
+| `paypal.PAYMENT.CAPTURE.REFUNDED`            | `refund.created`        |
+| `paypal.BILLING.SUBSCRIPTION.CREATED`        | `subscription.created`  |
+| `paypal.BILLING.SUBSCRIPTION.UPDATED`        | `subscription.updated`  |
+| `paypal.BILLING.SUBSCRIPTION.ACTIVATED`      | `subscription.updated`  |
+| `paypal.BILLING.SUBSCRIPTION.SUSPENDED`      | `subscription.updated`  |
+| `paypal.BILLING.SUBSCRIPTION.CANCELLED`      | `subscription.canceled` |
+| `paypal.BILLING.SUBSCRIPTION.EXPIRED`        | `subscription.canceled` |
+| `paypal.PAYMENT.AUTHORIZATION.CREATED`       | _(raw only)_            |
+| `paypal.PAYMENT.AUTHORIZATION.VOIDED`        | _(raw only)_            |
+| `paypal.PAYMENT.CAPTURE.DECLINED`            | _(raw only)_            |
+| `paypal.PAYMENT.CAPTURE.PENDING`             | _(raw only)_            |
+| `paypal.PAYMENT.CAPTURE.REVERSED`            | _(raw only)_            |
+| `paypal.PAYMENT.REFUND.PENDING`              | _(raw only)_            |
+| `paypal.PAYMENT.REFUND.FAILED`               | _(raw only)_            |
+| `paypal.BILLING.SUBSCRIPTION.PAYMENT.FAILED` | _(raw only)_            |
+| `paypal.CUSTOMER.DISPUTE.CREATED`            | _(raw only)_            |
+| `paypal.CUSTOMER.DISPUTE.RESOLVED`           | _(raw only)_            |
+| `paypal.CUSTOMER.DISPUTE.UPDATED`            | _(raw only)_            |
 
 ## provider_metadata
 
@@ -161,9 +162,9 @@ await paykit.checkouts.create({
   success_url: 'https://example.com/success',
   cancel_url: 'https://example.com/cancel',
   provider_metadata: {
-    currency: 'USD',      // required
-    amount: '29.00',      // required — total order amount as string
-    itemName: 'T-Shirt',  // required — display name shown in PayPal UI
+    currency: 'USD', // required
+    amount: '29.00', // required — total order amount as string
+    itemName: 'T-Shirt', // required — display name shown in PayPal UI
   },
 });
 

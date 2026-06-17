@@ -87,12 +87,12 @@ await webhook.handle({
 
 Comgate statuses and their PayKit event mappings:
 
-| Comgate status | PayKit events emitted                      |
-| -------------- | ------------------------------------------ |
-| `PAID`         | `payment.succeeded` + `invoice.generated`  |
-| `PENDING`      | `payment.created`                          |
-| `AUTHORIZED`   | `payment.updated`                          |
-| `CANCELLED`    | `payment.failed`                           |
+| Comgate status | PayKit events emitted                     |
+| -------------- | ----------------------------------------- |
+| `PAID`         | `payment.succeeded` + `invoice.generated` |
+| `PENDING`      | `payment.created`                         |
+| `AUTHORIZED`   | `payment.updated`                         |
+| `CANCELLED`    | `payment.failed`                          |
 
 ### Raw Comgate events
 
@@ -134,7 +134,7 @@ await paykit.payments.create({
   amount: 2900,
   currency: 'CZK',
   provider_metadata: {
-    email: 'user@example.com',        // required
+    email: 'user@example.com', // required
     paymentLabel: 'Order from Eshop', // optional
   },
 });

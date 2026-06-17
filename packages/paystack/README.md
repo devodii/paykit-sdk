@@ -59,7 +59,10 @@ export async function POST(
   const handler = endpoints[endpoint];
 
   if (!handler) {
-    return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    return NextResponse.json(
+      { message: 'Not found' },
+      { status: 404 },
+    );
   }
 
   const { args } = await request.json();

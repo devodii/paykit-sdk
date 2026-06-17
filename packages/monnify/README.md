@@ -60,7 +60,10 @@ export async function POST(
   const handler = endpoints[endpoint];
 
   if (!handler) {
-    return NextResponse.json({ message: 'Not found' }, { status: 404 });
+    return NextResponse.json(
+      { message: 'Not found' },
+      { status: 404 },
+    );
   }
 
   const { args } = await request.json();
@@ -105,12 +108,12 @@ export async function POST(request: NextRequest) {
 
 Monnify event mappings:
 
-| Monnify event | PayKit event emitted |
-| --- | --- |
-| `SUCCESSFUL_TRANSACTION` | `payment.created` |
-| `SUCCESSFUL_TRANSACTION_OFFLINE` | `payment.created` |
-| `REJECTED_PAYMENT` | `payment.failed` |
-| `SETTLEMENT` | `payment.updated` |
+| Monnify event                    | PayKit event emitted |
+| -------------------------------- | -------------------- |
+| `SUCCESSFUL_TRANSACTION`         | `payment.created`    |
+| `SUCCESSFUL_TRANSACTION_OFFLINE` | `payment.created`    |
+| `REJECTED_PAYMENT`               | `payment.failed`     |
+| `SETTLEMENT`                     | `payment.updated`    |
 
 ## Checkout
 
