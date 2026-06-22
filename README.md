@@ -2,6 +2,8 @@
 
 The Payment Toolkit for TypeScript developers.
 
+<a href="https://vercel.com/open-source-program"><img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge-2026.svg"/></a>
+
 PayKit is a unified SDK that simplifies payment processing across different providers with a consistent API.
 
 ## Quick Start
