@@ -29,11 +29,11 @@ export const POST = async (request: NextRequest) => {
         if (error) throw error;
       });
 
-    const headers = request.headers;
+    const headersAsObject = Object.fromEntries(request.headers.entries());
     const body = await request.text();
     const url = request.url;
 
-    await webhook.handle({ body, headers, fullUrl: url });
+    await webhook.handle({ body, headersAsObject, fullUrl: url });
 
     return NextResponse.json({ success: true });
   } catch (error) {

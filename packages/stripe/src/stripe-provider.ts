@@ -70,10 +70,11 @@ interface StripeMetadata extends ProviderMetadataRegistry {
   refund: Stripe.RefundCreateParams;
 }
 export interface StripeOptions
-  extends PaykitProviderOptions,
+  extends Omit<PaykitProviderOptions, 'isSandbox'>,
     Stripe.StripeConfig {
   /** Stripe secret key (sk_test_... or sk_live_...) */
   apiKey: string;
+  isSandbox?: boolean;
 }
 
 /** @internal */
