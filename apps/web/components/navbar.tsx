@@ -4,15 +4,8 @@ import { useState } from "react"
 import type { SVGProps } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Sun, Moon, Menu, X, ArrowUpRight } from "lucide-react"
+import { Sun, Moon, Menu, X } from "lucide-react"
 import { useTheme } from "next-themes"
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu"
 
 function Payroutes(props: SVGProps<SVGSVGElement>) {
   return (
@@ -47,19 +40,6 @@ function SdkLogo({ size = 32, priority = false }: { size?: number; priority?: bo
   )
 }
 
-function StellarToolsLogo({ size = 32 }: { size?: number }) {
-  return (
-    <span
-      className="relative inline-flex shrink-0"
-      style={{ width: size, height: size }}
-      aria-hidden="true"
-    >
-      <Image src="/stellartools-logo-light.svg" alt="" fill className="object-contain dark:hidden" />
-      <Image src="/stellartools-logo-dark.svg" alt="" fill className="object-contain hidden dark:block" />
-    </span>
-  )
-}
-
 function GitHubMark() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -67,25 +47,6 @@ function GitHubMark() {
     </svg>
   )
 }
-
-const PRODUCTS = [
-  {
-    name: "Payment SDK",
-    tagline: "Universal payment adapter",
-    description: "Swap payment providers with 2 lines of code. A consistent TypeScript API across Stripe, PayPal, Polar, and more.",
-    href: "/sdk",
-    Icon: SdkLogo,
-    external: false,
-  },
-  {
-    name: "StellarTools",
-    tagline: "Crypto-native checkout",
-    description: "Accept Stellar payments at checkout. Built for merchants who want wallet-connect powered payment flows.",
-    href: "https://stellartools.dev",
-    Icon: StellarToolsLogo,
-    external: true,
-  },
-]
 
 const MOBILE_LINKS = [
   { label: "Docs", href: "/docs" },
@@ -127,50 +88,6 @@ export function Navbar() {
           </div>
 
           <div className="hidden min-w-0 flex-1 items-center gap-0.5 md:flex">
-            <NavigationMenu viewport={false} className="max-w-max flex-none justify-start">
-              <NavigationMenuList className="justify-start">
-                <NavigationMenuItem>
-                  <NavigationMenuTrigger className="h-8 px-3 text-[13px] font-normal text-muted-foreground bg-transparent hover:bg-muted/50 data-[state=open]:bg-muted/50 data-[state=open]:text-foreground">
-                    Products
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent className="p-0! w-[340px]! rounded-2xl overflow-hidden border border-border shadow-2xl shadow-black/10 dark:shadow-black/50">
-                    <div className="p-2 space-y-0.5">
-                      {PRODUCTS.map((p) => (
-                        <Link
-                          key={p.name}
-                          href={p.href}
-                          target={p.external ? "_blank" : undefined}
-                          rel={p.external ? "noopener noreferrer" : undefined}
-                          className="flex items-start gap-4 rounded-xl p-3 hover:bg-muted/50 transition-colors group"
-                        >
-                          <div className="shrink-0 opacity-90 mt-0.5">
-                            <p.Icon />
-                          </div>
-                          <div className="flex-1 min-w-0 pt-0.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[13px] font-medium text-foreground">{p.name}</span>
-                              {p.external && (
-                                <ArrowUpRight size={12} className="text-muted-foreground/30 group-hover:text-muted-foreground/70 transition-colors shrink-0" />
-                              )}
-                            </div>
-                            <p className="text-[11px] font-medium text-muted-foreground/70 mt-0.5">{p.tagline}</p>
-                            <p className="text-[12px] text-muted-foreground mt-1.5 leading-relaxed">{p.description}</p>
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                    <div className="border-t border-border/50 px-5 py-3 flex items-center justify-between bg-muted/20">
-                      <p className="text-[11px] text-muted-foreground/60 font-mono">Open source · MIT license</p>
-                      <Link href="/sdk" className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-                        All products
-                        <ArrowUpRight size={10} />
-                      </Link>
-                    </div>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-              </NavigationMenuList>
-            </NavigationMenu>
-
             <Link href="/docs" className="h-8 px-3 flex items-center rounded-md text-[13px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors">
               Docs
             </Link>
@@ -227,27 +144,7 @@ export function Navbar() {
           />
           <div className="fixed inset-x-0 top-14 z-40 md:hidden border-b border-border bg-background max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain">
             <div className="px-4 py-4">
-              <p className="px-2 pb-2 text-[10px] font-mono text-muted-foreground/50 uppercase tracking-widest">Products</p>
               <div className="space-y-0.5">
-                {PRODUCTS.map((p) => (
-                  <Link
-                    key={p.name}
-                    href={p.href}
-                    target={p.external ? "_blank" : undefined}
-                    rel={p.external ? "noopener noreferrer" : undefined}
-                    onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-3.5 rounded-xl px-2 py-2.5 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="shrink-0 opacity-80"><p.Icon /></div>
-                    <div>
-                      <p className="text-[13px] font-medium text-foreground leading-none">{p.name}</p>
-                      <p className="text-[11px] text-muted-foreground mt-1">{p.tagline}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-
-              <div className="mt-3 pt-3 border-t border-border/50 space-y-0.5">
                 {MOBILE_LINKS.map((item) => (
                   <Link
                     key={item.label}
