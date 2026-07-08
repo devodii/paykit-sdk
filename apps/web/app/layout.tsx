@@ -3,16 +3,24 @@ import { AppProviders } from '@/providers';
 import { cn } from '@paykit-sdk/ui';
 import { Analytics } from '@vercel/analytics/next';
 import type { Metadata } from 'next';
-import { PT_Sans } from 'next/font/google';
+import { DM_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
 import NextTopLoader from 'nextjs-toploader';
 
-const ptSans = PT_Sans({
-  subsets: ['latin'],
-  variable: '--font-pt-sans',
-  display: 'swap',
-  weight: ['400', '700'],
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
 });
 
+const instrumentSerif = Instrument_Serif({
+  weight: "400",
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
+  subsets: ["latin"],
+});
 export const metadata: Metadata = {
   title: {
     default: 'PayKit - Build payments without vendor lock-in',
@@ -76,7 +84,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn(ptSans.variable, 'antialiased')}>
+      <body className={cn(dmSans.variable, instrumentSerif.variable, jetBrainsMono.variable, 'antialiased min-h-full flex flex-col')}>
         <NextTopLoader
           color={'hsl(var(--primary))'}
           height={2}
