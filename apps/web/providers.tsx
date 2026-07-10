@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { Toaster } from '@paykit-sdk/ui';
 import { ThemeProvider } from 'next-themes';
-import { initMixpanel } from './lib/analytics';
+import { initMixpanel } from '@/app/lib/analytics';
 
 export const AppProviders = ({
   children,
