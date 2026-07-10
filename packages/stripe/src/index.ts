@@ -14,7 +14,7 @@ export const stripe = () => {
 
   return createStripe({
     apiKey: envVars.STRIPE_API_KEY,
-    apiVersion: '2025-08-27.basil',
+    apiVersion: '2026-06-24.dahlia',
     isSandbox:
       envVars.STRIPE_API_KEY.includes('_test_') ||
       process.env.NODE_ENV !== 'production',
