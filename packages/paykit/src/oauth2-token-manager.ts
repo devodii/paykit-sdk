@@ -60,6 +60,8 @@ export interface OAuth2TokenManagerConfig {
  */
 export class OAuth2TokenManager {
   private _accessToken: string | null = null;
+  private _expiresAt = 0; // epoch ms
+  private _refreshPromise: Promise<string> | null = null;
   private readonly config: Required<
     Omit<
       OAuth2TokenManagerConfig,
@@ -82,17 +84,22 @@ export class OAuth2TokenManager {
    * Get a valid access token, refreshing if necessary
    */
   getToken = async (): Promise<string> => {
-    // Check if cached token is still valid
-    if (this._accessToken) {
-      const [token, , expiryStr] =
-        this._accessToken.split('::paykit::');
-      const expiry = parseInt(expiryStr || '0', 10);
-      if (expiry > Date.now()) {
-        return token;
-      }
+    // Serve from cache while the token is still valid
+    if (this._accessToken && this._expiresAt > Date.now()) {
+      return this._accessToken;
     }
 
-    // Refresh token
+    // Deduplicate concurrent refreshes
+    if (this._refreshPromise) return this._refreshPromise;
+
+    this._refreshPromise = this._refreshToken().finally(() => {
+      this._refreshPromise = null;
+    });
+
+    return this._refreshPromise;
+  };
+
+  private _refreshToken = async (): Promise<string> => {
     const credentials = Buffer.from(
       `${this.config.credentials.username}:${this.config.credentials.password}`,
     ).toString('base64');
@@ -144,10 +151,10 @@ export class OAuth2TokenManager {
     }
 
     // Cache token with expiry (subtract buffer for safety)
-    const expiryTime =
+    this._accessToken = tokenData.accessToken;
+    this._expiresAt =
       Date.now() +
       (tokenData.expiresIn - this.config.expiryBuffer) * 1000;
-    this._accessToken = `${tokenData.accessToken}::paykit::${expiryTime}`;
 
     return tokenData.accessToken;
   };

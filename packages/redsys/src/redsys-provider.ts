@@ -37,11 +37,15 @@ import {
   validateRequiredKeys,
   ValidationError,
   WebhookError,
-  WebhookEvent,
   WebhookEventPayload,
   WebhookHandlerConfig,
 } from '@paykit-sdk/core';
-import { createHmac, randomBytes } from 'crypto';
+import {
+  createCipheriv,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from 'crypto';
 
 export interface RedsysOptions extends PaykitProviderOptions {
   /**
@@ -114,6 +118,15 @@ const CURRENCY_MAP: Record<string, number> = {
   JPY: 392,
 };
 
+/** Redsys numeric code back to currency code */
+const CURRENCY_NUM_TO_CODE: Record<string, string> =
+  Object.fromEntries(
+    Object.entries(CURRENCY_MAP).map(([code, num]) => [
+      String(num),
+      code,
+    ]),
+  );
+
 /** Redsys response codes */
 const RESPONSE_CODES: Record<string, string> = {
   '0000': 'Transaction approved',
@@ -164,8 +177,8 @@ export class RedsysProvider
   private _getRedsysUrl(): string {
     if (this.opts.redsysUrl) return this.opts.redsysUrl;
     return this.opts.isSandbox
-      ? 'https://sis.redsys.es/sis/realizarPago'
-      : 'https://sis-t.REDsys.es:25443/sis/realizarPago';
+      ? 'https://sis-t.redsys.es:25443/sis/realizarPago'
+      : 'https://sis.redsys.es/sis/realizarPago';
   }
 
   private _getCurrencyNum(currency: string): number {
@@ -202,22 +215,46 @@ export class RedsysProvider
   }
 
   /**
-   * Generate HMAC-SHA256 signature for inSite
-   *
-   * Signature = HMAC-SHA256(secretKey, base64(params) + orderId)
-   * Order is important: base64Params + orderId (both as-is, no separators)
+   * Derive the per-order key required by Redsys HMAC_SHA256_V1:
+   * 3DES-CBC-encrypt the order number (zero-padded to a multiple of
+   * 8 bytes) with the base64-decoded merchant secret and a zero IV.
+   */
+  private _deriveOrderKey(orderId: string): Buffer {
+    const key = Buffer.from(this.opts.secretKey, 'base64');
+    const iv = Buffer.alloc(8, 0);
+    const cipher = createCipheriv('des-ede3-cbc', key, iv);
+    cipher.setAutoPadding(false);
+    const padded = Buffer.alloc(Math.ceil(orderId.length / 8) * 8, 0);
+    padded.write(orderId, 'utf8');
+    return Buffer.concat([cipher.update(padded), cipher.final()]);
+  }
+
+  /**
+   * Redsys HMAC_SHA256_V1 signature:
+   * HMAC-SHA256(deriveOrderKey(order), base64Params) as Base64.
    */
   private _sign(orderId: string, base64Params: string): string {
-    const data = base64Params + orderId;
-    return createHmac(
-      'sha256',
-      Buffer.from(this.opts.secretKey, 'base64'),
-    )
-      .update(data)
-      .digest('base64')
-      .replace(/\+/g, '-')
-      .replace(/\//g, '/')
-      .replace(/=+$/, '');
+    return createHmac('sha256', this._deriveOrderKey(orderId))
+      .update(base64Params)
+      .digest('base64');
+  }
+
+  /**
+   * Compare signatures in constant time, accepting both standard and
+   * URL-safe Base64 (Redsys uses URL-safe in some channels).
+   */
+  private _signatureMatches(
+    received: string,
+    expected: string,
+  ): boolean {
+    const normalize = (s: string) =>
+      Buffer.from(s.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    const receivedBuf = normalize(received);
+    const expectedBuf = normalize(expected);
+    return (
+      receivedBuf.length === expectedBuf.length &&
+      timingSafeEqual(receivedBuf, expectedBuf)
+    );
   }
 
   /**
@@ -490,9 +527,13 @@ export class RedsysProvider
   createCustomer = async (
     params: CreateCustomerParams<RedsysMetadata['customer']>,
   ): Promise<Customer> => {
-    throw new ProviderNotSupportedError('createCustomer', 'gopay', {
-      reason: "Redsys doesn't support creating customers",
-    });
+    throw new ProviderNotSupportedError(
+      'createCustomer',
+      this.providerName,
+      {
+        reason: "Redsys doesn't support creating customers",
+      },
+    );
   };
 
   retrieveCustomer = async (
@@ -677,45 +718,53 @@ export class RedsysProvider
     const dsOrder = params.Ds_Order;
     const dsAmount = params.Ds_Amount;
     const dsMerchantData = params.Ds_MerchantData;
+    const currency =
+      CURRENCY_NUM_TO_CODE[String(params.Ds_Currency ?? '')] ?? 'EUR';
 
-    // Verify signature
+    // Verify signature (constant-time comparison)
     const signature = dataAsObject.Ds_Signature as string;
     const expectedSig = this._sign(dsOrder, paramsBase64);
-    const sigOk = signature === expectedSig;
 
-    if (!sigOk) {
+    if (
+      !signature ||
+      !this._signatureMatches(signature, expectedSig)
+    ) {
       throw new WebhookError('Invalid Redsys webhook signature', {
         provider: this.providerName,
       });
     }
 
     const events: Array<WebhookEventPayload<RedsysRawEvents>> = [];
+    // Ds_Amount is in minor units, same as the rest of the SDK
+    const amountNum = Number(dsAmount);
 
     if (dsResponse === '0000' || dsResponse.startsWith('00')) {
-      const customerId =
-        parseJSON(
-          Buffer.from(dsMerchantData, 'base64').toString('utf-8'),
-          Schema.object({
-            customerId: Schema.string().optional(),
-          }),
-        )?.customerId ?? null;
+      const customerId = dsMerchantData
+        ? (parseJSON(
+            Buffer.from(String(dsMerchantData), 'base64').toString(
+              'utf-8',
+            ),
+            Schema.object({
+              customerId: Schema.string().optional(),
+            }),
+          )?.customerId ?? null)
+        : null;
 
-      const amountNum = Number(dsAmount) / 100;
       const paymentId = `${dsOrder}_${params.Ds_AuthorisationCode ?? 'unknown'}`;
 
-      const t = [];
       events.push(
         {
-          event: 'redsys.payment.succeeded',
+          id: randomBytes(8).toString('hex'),
+          type: 'redsys.payment.succeeded',
+          created: Math.floor(Date.now() / 1000),
           data: {
             order_id: dsOrder,
             amount: amountNum,
             response_code: dsResponse,
             customer_id: customerId,
           },
-        } as unknown as WebhookEvent<
-          RedsysRawEvents['redsys.payment.succeeded']
-        >,
+          is_raw: true,
+        } as WebhookEventPayload<RedsysRawEvents>,
 
         paykitEvent$InboundSchema<Payment>({
           type: 'payment.succeeded',
@@ -724,7 +773,7 @@ export class RedsysProvider
           data: {
             id: paymentId,
             amount: amountNum,
-            currency: 'EUR',
+            currency,
             customer: customerId ? { id: customerId } : null,
             status: 'succeeded' as const,
             metadata: {},
@@ -737,24 +786,25 @@ export class RedsysProvider
     } else {
       events.push(
         {
-          event: 'redsys.payment.failed',
+          id: randomBytes(8).toString('hex'),
+          type: 'redsys.payment.failed',
+          created: Math.floor(Date.now() / 1000),
           data: {
             order_id: dsOrder,
             response_code: dsResponse,
             error_message:
               RESPONSE_CODES[dsResponse] ?? `Code ${dsResponse}`,
           },
-        } as unknown as WebhookEvent<
-          RedsysRawEvents['redsys.payment.failed']
-        >,
+          is_raw: true,
+        } as WebhookEventPayload<RedsysRawEvents>,
         paykitEvent$InboundSchema<Payment>({
           type: 'payment.failed',
           created: new Date().getTime(),
           id: randomBytes(8).toString('hex').slice(0, 15),
           data: {
             id: dsOrder,
-            amount: Number(dsAmount) / 100,
-            currency: 'EUR',
+            amount: amountNum,
+            currency,
             customer: null,
             status: 'failed' as const,
             metadata: {},

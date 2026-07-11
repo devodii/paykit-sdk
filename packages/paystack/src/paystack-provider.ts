@@ -39,7 +39,7 @@ import {
   schema,
   stringifyMetadataValues,
 } from '@paykit-sdk/core';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import {
   PaystackCustomer,
@@ -661,7 +661,13 @@ export class PaystackProvider
       .update(body)
       .digest('hex');
 
-    if (expectedSignature !== signature) {
+    const expectedBuf = Buffer.from(expectedSignature, 'hex');
+    const receivedBuf = Buffer.from(signature, 'hex');
+
+    if (
+      expectedBuf.length !== receivedBuf.length ||
+      !timingSafeEqual(expectedBuf, receivedBuf)
+    ) {
       throw new WebhookError('Invalid Paystack webhook signature', {
         provider: this.providerName,
       });

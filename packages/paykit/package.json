@@ -19,7 +19,9 @@
     "type": "core"
   },
   "scripts": {
-    "build": "tsup "
+    "build": "tsup ",
+    "test": "vitest run --config ../../vitest.config.ts packages/paykit/src",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "payment",

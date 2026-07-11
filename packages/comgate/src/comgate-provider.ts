@@ -39,6 +39,7 @@ import {
   CreateCustomerParams,
 } from '@paykit-sdk/core';
 import { Checkout } from '@paykit-sdk/core';
+import { timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import {
   ComgatePaymentOperationResponse,
@@ -641,7 +642,13 @@ export class ComgateProvider
       'Missing required webhook parameters: {keys}',
     );
 
-    if (secret !== this.opts.secret) {
+    const secretBuf = Buffer.from(secret);
+    const expectedSecretBuf = Buffer.from(this.opts.secret);
+
+    if (
+      secretBuf.length !== expectedSecretBuf.length ||
+      !timingSafeEqual(secretBuf, expectedSecretBuf)
+    ) {
       throw new WebhookError('Webhook secret mismatch', {
         provider: this.providerName,
       });

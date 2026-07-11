@@ -36,6 +36,7 @@ import {
   WebhookHandlerConfig,
   Schema,
 } from '@paykit-sdk/core';
+import { timingSafeEqual } from 'crypto';
 import { sha512 } from 'js-sha512';
 import {
   monnifyToPaykitEventMap,
@@ -571,12 +572,16 @@ export class MonnifyProvider
       });
     }
 
-    const computedHash = sha512.hmac(
-      webhookSecret,
-      JSON.stringify(body),
-    );
+    // Monnify signs the raw request body with HMAC-SHA512
+    const computedHash = sha512.hmac(webhookSecret, body);
 
-    if (computedHash !== receivedHash)
+    const computedBuf = Buffer.from(computedHash, 'hex');
+    const receivedBuf = Buffer.from(receivedHash, 'hex');
+
+    if (
+      computedBuf.length !== receivedBuf.length ||
+      !timingSafeEqual(computedBuf, receivedBuf)
+    )
       throw new WebhookError('Invalid Monnify signature', {
         provider: this.providerName,
       });
@@ -600,36 +605,37 @@ export class MonnifyProvider
 
     const { eventType, eventData } = parsedBody;
 
+    const created = Math.floor(Date.now() / 1000);
+    const results: Array<WebhookEventPayload<MonnifyRawEvents>> = [];
+
+    results.push({
+      id: `monnify:${eventType}:${crypto.randomUUID()}`,
+      type: `monnify.${eventType}`,
+      created,
+      data: eventData as any,
+      is_raw: true,
+    });
+
     const eventMapper = monnifyToPaykitEventMap[eventType];
 
-    if (!eventMapper) {
-      throw new WebhookError('Unknown Monnify event type', {
-        provider: this.providerName,
+    const standardType =
+      typeof eventMapper === 'function'
+        ? eventMapper(eventData)
+        : eventMapper;
+
+    if (standardType) {
+      results.push({
+        id: `paykit:${eventType}:${crypto.randomUUID()}`,
+        type: standardType,
+        created,
+        data: eventData as any, // todo: add mapper for event data
       });
+    } else if (this.opts.debug) {
+      console.info(
+        `[Monnify] No standard mapping for event: ${eventType}. Available as raw event.`,
+      );
     }
 
-    if (typeof eventMapper === 'function') {
-      const event = eventMapper(eventData);
-
-      return [
-        {
-          type: event,
-          created: new Date().getTime(),
-          id: `paykit:webhook:${Math.random().toString(36).substring(2, 15)}`,
-          data: eventData as any, // todo: add mapper for event data
-        },
-      ];
-    } else {
-      const event = eventMapper as string;
-
-      return [
-        {
-          type: event,
-          created: new Date().getTime(),
-          id: `paykit:webhook:${Math.random().toString(36).substring(2, 15)}`,
-          data: eventData as any, // todo: add mapper for event data
-        },
-      ];
-    }
+    return results;
   };
 }

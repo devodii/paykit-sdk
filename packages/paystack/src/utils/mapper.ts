@@ -134,21 +134,10 @@ export const Checkout$inboundSchema = (
     }),
   );
 
-  if (paykitMeta && typeof paykitMeta === 'string') {
-    const parsed = parseJSON(
-      paykitMeta,
-      Schema.object({
-        item_id: Schema.string().optional(),
-        quantity: Schema.number().optional(),
-        type: billingModeSchema.optional(),
-      }),
-    );
-
-    if (parsed) {
-      itemId = parsed.item_id ?? '';
-      quantity = parsed.quantity ?? 1;
-      type = parsed.type ?? null;
-    }
+  if (paykitMeta) {
+    itemId = paykitMeta.item_id ?? '';
+    quantity = paykitMeta.quantity ?? 1;
+    type = paykitMeta.type ?? null;
   }
 
   let customer: Payee | null = null;

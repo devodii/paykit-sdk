@@ -8,7 +8,7 @@ import {
 import { Telemetry } from './telemetry';
 import { Webhook, WebhookSetupConfig } from './webhook-provider';
 
-export const PAYKIT_METADATA_KEY = '__paykit';
+export { PAYKIT_METADATA_KEY } from './resources/metadata';
 
 /**
  * @template TMetadata - The registry of provider-specific metadata types

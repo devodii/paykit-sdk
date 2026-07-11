@@ -1,10 +1,10 @@
 import { setTimeout } from 'timers/promises';
 import { z } from 'zod';
+import { UnTraceableError } from '../error';
 import {
-  UnTraceableError,
   PAYKIT_METADATA_KEY,
   PaykitMetadata,
-} from '..';
+} from '../resources/metadata';
 import { tryCatchSync } from './try-catch';
 
 export type Result<T, E = unknown> =
@@ -75,7 +75,12 @@ export async function executeWithRetryWithHandler<T>(
   } catch (error) {
     const handledError = errorHandler(error, currentAttempt);
 
-    if (!handledError.retry) return handledError.data as T;
+    if (!handledError.retry) {
+      // No fallback data means the error must propagate — returning
+      // null here would hand callers a null where a value is expected
+      if (handledError.data == null) throw error;
+      return handledError.data as T;
+    }
 
     if (handledError.retry && currentAttempt <= maxRetries) {
       const delay =
@@ -94,6 +99,7 @@ export async function executeWithRetryWithHandler<T>(
       );
     }
 
+    if (handledError.data == null) throw error;
     return handledError.data as T;
   }
 }

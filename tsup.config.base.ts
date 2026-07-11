@@ -12,7 +12,7 @@ export function createTsupConfig(
   const type = pkg?.paykit?.type || 'unknown';
 
   return defineConfig({
-    entry: ['src/**/*.ts'],
+    entry: ['src/**/*.ts', '!src/**/*.test.ts'],
     format: ['cjs', 'esm'],
     dts: true,
     clean: true,

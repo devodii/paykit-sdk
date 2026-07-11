@@ -19,7 +19,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "test": "vitest run --config ../../vitest.config.ts packages/gopay/src",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "paykit",

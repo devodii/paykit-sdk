@@ -19,7 +19,9 @@
     "type": "provider"
   },
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "test": "vitest run --config ../../vitest.config.ts packages/monnify/src",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "license": "ISC",
