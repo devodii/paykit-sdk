@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { initMixpanel } from '@/app/lib/analytics';
 import { Toaster } from '@paykit-sdk/ui';
 import { ThemeProvider } from 'next-themes';
-import { initMixpanel } from '@/app/lib/analytics';
 
 export const AppProviders = ({
   children,

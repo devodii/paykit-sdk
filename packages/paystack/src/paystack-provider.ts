@@ -38,6 +38,7 @@ import {
   paykitEvent$InboundSchema,
   schema,
   stringifyMetadataValues,
+  validateRequiredKeys,
 } from '@paykit-sdk/core';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
@@ -181,7 +182,11 @@ export class PaystackProvider
       );
     }
 
-    const { amount, currency = 'NGN' } = data.provider_metadata ?? {};
+    const { amount, currency = 'NGN' } = validateRequiredKeys(
+      ['amount', 'currency'],
+      (data.provider_metadata as Record<string, string>) ?? {},
+      'Missing required provider metadata: {keys}',
+    );
 
     const metadata = {
       ...stringifyMetadataValues(data.metadata ?? {}),
@@ -194,8 +199,8 @@ export class PaystackProvider
 
     const body = {
       email: data.customer.email,
-      amount: amount ?? 0,
-      currency,
+      amount: parseInt(amount, 10),
+      currency: currency.toUpperCase(),
       reference: crypto.randomUUID(),
       callback_url: data.success_url,
       metadata: stringifyMetadataValues(metadata) as Record<
@@ -216,8 +221,8 @@ export class PaystackProvider
     >(`/customer/${encodeURIComponent(data.customer.email)}`);
 
     return Checkout$inboundSchema(initData, {
-      amount: body.amount as number,
-      currency: body.currency as string,
+      amount: body.amount,
+      currency: body.currency,
       customer: await this.unwrap(rawCustomer, 'createCheckout'),
       metadata: JSON.stringify(metadata),
     } satisfies Partial<PaystackTransaction>);

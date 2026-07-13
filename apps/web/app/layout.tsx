@@ -3,23 +3,27 @@ import { AppProviders } from '@/providers';
 import { cn } from '@paykit-sdk/ui';
 import { Analytics } from '@vercel/analytics/next';
 import type { Metadata } from 'next';
-import { DM_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/google';
+import {
+  DM_Sans,
+  Instrument_Serif,
+  JetBrains_Mono,
+} from 'next/font/google';
 import NextTopLoader from 'nextjs-toploader';
 
 const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
+  variable: '--font-dm-sans',
+  subsets: ['latin'],
 });
 
 const instrumentSerif = Instrument_Serif({
-  weight: "400",
-  variable: "--font-instrument-serif",
-  subsets: ["latin"],
+  weight: '400',
+  variable: '--font-instrument-serif',
+  subsets: ['latin'],
 });
 
 const jetBrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
+  variable: '--font-jetbrains-mono',
+  subsets: ['latin'],
 });
 export const metadata: Metadata = {
   title: {
@@ -84,7 +88,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn(dmSans.variable, instrumentSerif.variable, jetBrainsMono.variable, 'antialiased min-h-full flex flex-col')}>
+      <body
+        className={cn(
+          dmSans.variable,
+          instrumentSerif.variable,
+          jetBrainsMono.variable,
+          'flex min-h-full flex-col antialiased',
+        )}
+      >
         <NextTopLoader
           color={'hsl(var(--primary))'}
           height={2}
