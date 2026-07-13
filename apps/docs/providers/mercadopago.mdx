@@ -1,0 +1,159 @@
+---
+title: Mercado Pago
+description: Mercado Pago provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/mercadopago
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { mercadoPago } from '@paykit-sdk/mercadopago';
+
+    export const paykit = new PayKit(mercadoPago());
+    ```
+
+    Required env vars:
+    ```bash
+    MERCADOPAGO_ACCESS_TOKEN=TEST-...
+    ```
+
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createMercadoPago } from '@paykit-sdk/mercadopago';
+
+    export const paykit = new PayKit(
+      createMercadoPago({ accessToken: 'TEST-...', isSandbox: true }),
+    );
+    ```
+
+  </Tab>
+</Tabs>
+
+## How it works
+
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: { amount: '400', currency: 'ARS' },
+});
+
+// Redirect the customer to checkout.payment_url
+
+// Once they're back, confirm the payment
+const payment = await paykit.payments.retrieve(checkout.id);
+```
+
+Checkouts and one-off payments are both built on Mercado Pago's Checkout Pro preferences. Subscriptions reference a pre-existing Plan instead — `item_id` maps to that plan's id:
+
+```typescript
+const subscription = await paykit.subscriptions.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'plan_id_from_mercadopago',
+  quantity: 1,
+  billing_interval: 'month',
+  amount: 4990,
+  currency: 'ARS',
+  metadata: null,
+});
+
+// Redirect the customer to subscription.payment_url to authorize the mandate
+```
+
+## Webhooks
+
+Mercado Pago signs webhooks with a **secret signature** configured separately in your integration settings — it's not the same as your access token. Notifications only carry the resource type and id; the provider fetches the full resource before mapping standard events.
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET! })
+  .on('payment.succeeded', async event => {
+    /* payment status "approved" */
+  })
+  .on('payment.failed', async event => {
+    /* payment status "rejected" or "cancelled" */
+  })
+  .on('refund.created', async event => {
+    /* payment status "refunded" */
+  })
+  .on('subscription.updated', async event => {
+    /* subscription_preapproval notifications */
+  })
+  .on('invoice.generated', async event => {
+    /* approved payment or subscription charge */
+  });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+Mercado Pago sends the signature in the `x-signature` header (`ts=...,v1=...`), and the notified resource id in the `data.id` query parameter — both feed into the HMAC-SHA256 manifest alongside `x-request-id`.
+
+### Raw Mercado Pago events
+
+Opt into any native Mercado Pago notification — fully typed against Mercado Pago's webhook envelope:
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET! })
+  .on('mercadopago.payment.created', async event => {
+    // event.data is the full Mercado Pago notification envelope
+  })
+  .on(
+    'mercadopago.subscription_authorized_payment.created',
+    async event => {
+      // fired for each recurring subscription charge
+    },
+  );
+```
+
+Every webhook always emits its raw event first, alongside the matching standard PayKit event below where one applies.
+
+| Raw event                                                           | PayKit event                              |
+| ------------------------------------------------------------------- | ----------------------------------------- |
+| `mercadopago.payment.created`                                       | `payment.created`                         |
+| `mercadopago.payment.updated` (status `approved`)                   | `payment.succeeded` + `invoice.generated` |
+| `mercadopago.payment.updated` (status `rejected`/`cancelled`)       | `payment.failed`                          |
+| `mercadopago.payment.updated` (status `refunded`)                   | `refund.created`                          |
+| `mercadopago.subscription_preapproval.created`                      | `subscription.created`                    |
+| `mercadopago.subscription_preapproval.updated` (status `cancelled`) | `subscription.canceled`                   |
+| `mercadopago.subscription_preapproval.updated` (other statuses)     | `subscription.updated`                    |
+| `mercadopago.subscription_authorized_payment.*` (charge `approved`) | `payment.succeeded` + `invoice.generated` |
+| `mercadopago.subscription_authorized_payment.*` (charge `rejected`) | `payment.failed`                          |
+| `mercadopago.subscription_preapproval_plan.*`                       | _(raw only)_                              |
+
+Mercado Pago has no delete-preference API and no general payment-update API — use `capturePayment`/`cancelPayment` for payment state transitions instead of `updatePayment`.
+
+## provider_metadata
+
+```typescript
+// checkout/payment.provider_metadata requires amount and currency (checkout)
+// or success_url (payment)
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    amount: '400', // in the standard currency unit, as a string
+    currency: 'ARS',
+  },
+});
+```

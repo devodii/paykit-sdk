@@ -1,0 +1,165 @@
+---
+title: Xendit
+description: Xendit provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/xendit
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { xendit } from '@paykit-sdk/xendit';
+
+    export const paykit = new PayKit(xendit());
+    ```
+
+    Required env vars:
+    ```bash
+    XENDIT_SECRET_KEY=xnd_development_...
+    ```
+
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createXendit } from '@paykit-sdk/xendit';
+
+    export const paykit = new PayKit(
+      createXendit({ secretKey: 'xnd_development_...', isSandbox: true }),
+    );
+    ```
+
+  </Tab>
+</Tabs>
+
+## How it works
+
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: { amount: '400', currency: 'IDR' },
+});
+
+// Redirect the customer to checkout.payment_url
+
+// Once they're back, confirm the payment
+const payment = await paykit.payments.retrieve(checkout.id);
+```
+
+Checkouts and one-off payments are both built on Xendit's hosted Invoices. Xendit's Recurring Plans API has no separate reusable plan template — each plan already carries its own amount/currency/schedule, and requires a pre-created Xendit customer id plus at least one saved payment token:
+
+```typescript
+const subscription = await paykit.subscriptions.create({
+  customer: { id: 'cust_xendit_id' },
+  item_id: 'My Newspaper Subscription',
+  quantity: 1,
+  billing_interval: 'month',
+  amount: 50000,
+  currency: 'IDR',
+  metadata: null,
+  provider_metadata: {
+    payment_tokens: [{ payment_token_id: 'pt-...', rank: 1 }],
+  },
+});
+```
+
+## Webhooks
+
+Xendit verifies webhooks with a **Callback Verification Token** copied from your dashboard — a plain string comparison via the `x-callback-token` header, not an HMAC signature.
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.XENDIT_CALLBACK_TOKEN! })
+  .on('payment.succeeded', async event => {
+    /* invoice status PAID/SETTLED, or a succeeded recurring cycle */
+  })
+  .on('payment.failed', async event => {
+    /* invoice status EXPIRED, or a failed recurring cycle */
+  })
+  .on('subscription.updated', async event => {
+    /* recurring.plan.activated */
+  })
+  .on('subscription.canceled', async event => {
+    /* recurring.plan.inactivated */
+  });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw Xendit events
+
+Opt into any native Xendit notification — fully typed against Xendit's callback payload shape:
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.XENDIT_CALLBACK_TOKEN! })
+  .on('xendit.invoice.paid', async event => {
+    // event.data is the full Xendit invoice resource
+  })
+  .on('xendit.recurring.cycle.succeeded', async event => {
+    // event.data.data is the recurring cycle resource
+  });
+```
+
+Every webhook always emits its raw event first, alongside the matching standard PayKit event below where one applies. Invoice callbacks are sent as the raw invoice resource itself (no `event`/`data` wrapper); Recurring webhooks use a wrapping `{ event, business_id, created, data }` envelope instead — Xendit's two product lines don't share a webhook shape.
+
+| Raw event                                 | PayKit event                              |
+| ----------------------------------------- | ----------------------------------------- |
+| `xendit.invoice.pending`                  | `payment.created`                         |
+| `xendit.invoice.paid`                     | `payment.succeeded` + `invoice.generated` |
+| `xendit.invoice.settled`                  | `payment.succeeded` + `invoice.generated` |
+| `xendit.invoice.expired`                  | `payment.failed`                          |
+| `xendit.recurring.plan.activated`         | `subscription.updated`                    |
+| `xendit.recurring.plan.inactivated`       | `subscription.canceled`                   |
+| `xendit.recurring.cycle.succeeded`        | `payment.succeeded` + `invoice.generated` |
+| `xendit.recurring.cycle.failed`           | `payment.failed`                          |
+| `xendit.recurring.cycle.created/retrying` | _(raw only)_                              |
+
+Xendit has no delete-customer API and no manual payment-capture API — `deleteCustomer` and `capturePayment` throw `ProviderNotSupportedError`. Use `cancelPayment` to expire a pending invoice instead.
+
+## provider_metadata
+
+```typescript
+// checkout/payment.provider_metadata requires amount and currency (checkout)
+// or success_url (payment)
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    amount: '400', // in the standard currency unit, as a string
+    currency: 'IDR',
+  },
+});
+
+// subscription.provider_metadata requires payment_tokens
+await paykit.subscriptions.create({
+  customer: { id: 'cust_xendit_id' },
+  item_id: 'My Newspaper Subscription',
+  quantity: 1,
+  billing_interval: 'month',
+  amount: 50000,
+  currency: 'IDR',
+  metadata: null,
+  provider_metadata: {
+    payment_tokens: [{ payment_token_id: 'pt-...', rank: 1 }],
+  },
+});
+```

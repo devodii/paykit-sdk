@@ -1,0 +1,46 @@
+{
+  "name": "@paykit-sdk/mercadopago",
+  "version": "1.0.0",
+  "description": "Mercado Pago provider for PayKit",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "paykit": {
+    "type": "provider"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run --config ../../vitest.config.ts packages/mercadopago/src",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mercadopago",
+    "paykit",
+    "payment",
+    "typescript"
+  ],
+  "author": "Emmanuel Odii",
+  "license": "ISC",
+  "peerDependencies": {
+    "@paykit-sdk/core": "^1.2.3"
+  },
+  "devDependencies": {
+    "@paykit-sdk/core": "workspace:*",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2",
+    "zod": "^3.24.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usepaykit/paykit-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/usepaykit/paykit-sdk/issues"
+  }
+}

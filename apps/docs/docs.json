@@ -28,13 +28,15 @@
           "providers/chapa",
           "providers/comgate",
           "providers/gopay",
+          "providers/mercadopago",
           "providers/monnify",
           "providers/paypal",
           "providers/paystack",
           "providers/polar",
           "providers/razorpay",
           "providers/redsys",
-          "providers/stripe"
+          "providers/stripe",
+          "providers/xendit"
         ]
       },
       {
