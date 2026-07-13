@@ -32,6 +32,7 @@
           "providers/paypal",
           "providers/paystack",
           "providers/polar",
+          "providers/razorpay",
           "providers/redsys",
           "providers/stripe"
         ]

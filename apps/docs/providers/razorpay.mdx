@@ -1,0 +1,180 @@
+---
+title: Razorpay
+description: Razorpay provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/razorpay
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { razorpay } from '@paykit-sdk/razorpay';
+
+    export const paykit = new PayKit(razorpay());
+    ```
+
+    Required env vars:
+    ```bash
+    RAZORPAY_KEY_ID=rzp_test_...
+    RAZORPAY_KEY_SECRET=...
+    ```
+
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createRazorpay } from '@paykit-sdk/razorpay';
+
+    export const paykit = new PayKit(
+      createRazorpay({ keyId: 'rzp_test_...', keySecret: '...', isSandbox: true }),
+    );
+    ```
+
+  </Tab>
+</Tabs>
+
+## How it works
+
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: { amount: '40000', currency: 'INR' },
+});
+
+// Redirect the customer to checkout.payment_url
+
+// Once they're back, confirm the payment
+const payment = await paykit.payments.retrieve(checkout.id);
+```
+
+Checkouts and one-off payments are both built on Razorpay's Payment
+Links. Subscriptions use a pre-existing Razorpay Plan instead —
+`item_id` maps to that plan's `plan_id`:
+
+```typescript
+const subscription = await paykit.subscriptions.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'plan_00000000000001',
+  quantity: 1,
+  billing_interval: 'month',
+  amount: 49900,
+  currency: 'INR',
+  metadata: null,
+  provider_metadata: { total_count: 12 },
+});
+
+// Redirect the customer to subscription.payment_url to authorize the mandate
+```
+
+## Webhooks
+
+Razorpay signs webhooks with a **webhook secret** you configure separately
+in the Razorpay dashboard — it's not the same as your API key secret.
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET! })
+  .on('payment.succeeded', async event => {
+    /* payment.captured, order.paid, subscription.charged */
+  })
+  .on('payment.failed', async event => {
+    /* payment.failed */
+  })
+  .on('refund.created', async event => {
+    /* refund.created or refund.processed */
+  })
+  .on('subscription.updated', async event => {
+    /* subscription.authenticated, activated, updated, resumed */
+  })
+  .on('subscription.canceled', async event => {
+    /* subscription.completed or subscription.cancelled */
+  });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+Razorpay sends the signature in the `x-razorpay-signature` header:
+`HMAC-SHA256(webhookSecret, rawRequestBody)`.
+
+### Raw Razorpay events
+
+Opt into any native Razorpay event — fully typed against Razorpay's
+webhook payload shape:
+
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET! })
+  .on('razorpay.payment.captured', async event => {
+    // event.data is the full Razorpay webhook envelope
+  })
+  .on('razorpay.payment_link.paid', async event => {
+    // event.data.payload.payment_link.entity is typed as RazorpayPaymentLink
+  });
+```
+
+Every webhook always emits its raw event first, alongside the
+matching standard PayKit event below where one applies.
+
+| Raw event                                                             | PayKit event                              |
+| --------------------------------------------------------------------- | ----------------------------------------- |
+| `razorpay.payment.authorized`                                         | `payment.updated`                         |
+| `razorpay.payment.captured`                                           | `payment.succeeded` + `invoice.generated` |
+| `razorpay.payment.failed`                                             | `payment.failed`                          |
+| `razorpay.order.paid`                                                 | `payment.succeeded` + `invoice.generated` |
+| `razorpay.refund.created` / `razorpay.refund.processed`               | `refund.created`                          |
+| `razorpay.payment_link.paid`                                          | `payment.succeeded`                       |
+| `razorpay.payment_link.cancelled` / `razorpay.payment_link.expired`   | _(raw only)_                              |
+| `razorpay.subscription.authenticated/activated/updated/resumed`       | `subscription.updated`                    |
+| `razorpay.subscription.charged`                                       | `payment.succeeded` + `invoice.generated` |
+| `razorpay.subscription.completed` / `razorpay.subscription.cancelled` | `subscription.canceled`                   |
+| `razorpay.subscription.pending/halted/paused`                         | _(raw only)_                              |
+
+Razorpay has no delete-customer API and no cancel-payment API — use
+`createRefund` to reverse a captured payment instead of canceling it.
+
+## provider_metadata
+
+```typescript
+// checkout/payment.provider_metadata requires amount and currency (checkout)
+// or success_url (payment)
+await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    amount: '40000', // in the smallest currency unit (e.g. paise), as a string
+    currency: 'INR',
+  },
+});
+
+// subscription.provider_metadata requires total_count or end_at
+await paykit.subscriptions.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'plan_00000000000001',
+  quantity: 1,
+  billing_interval: 'month',
+  amount: 49900,
+  currency: 'INR',
+  metadata: null,
+  provider_metadata: {
+    total_count: 12, // number of billing cycles
+  },
+});
+```
