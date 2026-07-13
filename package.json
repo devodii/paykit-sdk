@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",
+    "npm-check-updates": "^22.2.9",
     "prettier-plugin-tailwindcss": "^0.6.12",
     "tailwindcss": "^4.1.11",
     "tsup": "^8.5.0",
