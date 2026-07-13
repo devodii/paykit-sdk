@@ -1,4 +1,5 @@
 ---
+'@paykit-sdk/comgate': minor
 '@paykit-sdk/gopay': minor
 '@paykit-sdk/monnify': minor
 '@paykit-sdk/core': minor
@@ -9,7 +10,6 @@
 '@paykit-sdk/redsys': minor
 '@paykit-sdk/stripe': minor
 '@paykit-sdk/ui': minor
-'telemetry': patch
 ---
 
-chore: bump packages
+chore: bump provider versions
