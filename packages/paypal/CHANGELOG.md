@@ -1,5 +1,11 @@
 # @paykit-sdk/paypal
 
+## 1.3.2
+
+### Patch Changes
+
+- b93ba18: chore: bump versions
+
 ## 1.3.1
 
 ### Patch Changes

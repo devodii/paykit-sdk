@@ -1,5 +1,11 @@
 # @paykit-sdk/react
 
+## 1.2.1
+
+### Patch Changes
+
+- b93ba18: chore: bump versions
+
 ## 1.2.0
 
 ### Minor Changes
