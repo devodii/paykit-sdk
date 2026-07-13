@@ -221,7 +221,7 @@ export class GoPayProvider
 
     const { amount, currency = 'CZK' } = validateRequiredKeys(
       ['amount', 'currency'],
-      data.provider_metadata as Record<string, string>,
+      (data.provider_metadata as Record<string, string>) ?? {},
       'The following fields must be present in the provider_metadata of createCheckout: {keys}',
     );
 
@@ -397,7 +397,7 @@ export class GoPayProvider
 
     const { success_url } = validateRequiredKeys(
       ['success_url'],
-      data.provider_metadata as Record<string, string>,
+      (data.provider_metadata as Record<string, string>) ?? {},
       'The following fields must be present in the provider_metadata of createSubscription: {keys}',
     );
 
@@ -552,6 +552,7 @@ export class GoPayProvider
           name: data.item_id,
           amount: Number(data.amount),
           count: data.quantity ?? 1,
+          type: 'ITEM',
         },
       ],
       recurrence,

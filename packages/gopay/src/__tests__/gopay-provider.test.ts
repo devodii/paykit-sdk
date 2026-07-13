@@ -273,6 +273,37 @@ describe('GoPayProvider.createSubscription', () => {
       billing_interval: 'custom:604800000ms',
     });
   });
+
+  it('marks items with type: ITEM, matching createCheckout/createPayment and the documented GoPay example', async () => {
+    stubTokenThenSubscription(subscriptionFixture());
+
+    await makeProvider().createSubscription({
+      ...baseParams,
+      billing_interval: 'month',
+    } as never);
+
+    const [, options] = fetchMock.mock.calls[1];
+    const body = JSON.parse((options as { body: string }).body);
+
+    expect(body.items[0]).toMatchObject({
+      name: 'plan_pro',
+      type: 'ITEM',
+    });
+  });
+
+  it('throws a clean ValidationError instead of crashing when provider_metadata is omitted', async () => {
+    const { provider_metadata, ...paramsWithoutProviderMetadata } =
+      baseParams;
+
+    await expect(
+      makeProvider().createSubscription({
+        ...paramsWithoutProviderMetadata,
+        billing_interval: 'month',
+      } as never),
+    ).rejects.toThrow(/success_url/);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('GoPayProvider.updateSubscription', () => {
