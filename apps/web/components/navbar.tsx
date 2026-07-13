@@ -147,7 +147,7 @@ export function Navbar() {
             >
               <SdkLogo size={30} priority />
               <span className="text-foreground hidden truncate text-[14px] leading-none font-semibold tracking-tight sm:inline">
-                Payment{' '}
+                PayKit{' '}
                 <span className="text-muted-foreground font-normal">
                   SDK
                 </span>

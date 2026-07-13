@@ -132,7 +132,7 @@ export function Footer() {
           <Link href="/" className="flex items-center gap-2">
             <SdkLogo size={22} priority />
             <span className="text-foreground text-sm font-semibold">
-              Payment SDK
+              PayKit SDK
             </span>
           </Link>
           <p className="text-muted-foreground text-xs">
