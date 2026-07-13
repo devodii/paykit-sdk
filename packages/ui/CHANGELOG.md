@@ -1,5 +1,11 @@
 # @paykit-sdk/ui
 
+## 0.2.0
+
+### Minor Changes
+
+- c9ea9eb: chore: bump provider versions and tighten core peer dependency range to ^1.2.3
+
 ## 0.1.13
 
 ### Patch Changes
