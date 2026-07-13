@@ -135,6 +135,22 @@ export class PolarProvider
   /**
    * Checkout management
    */
+  /**
+   * Polar's checkoutCreateOptions accepts the customer as either
+   * customerId or customerEmail, regardless of whether the checkout
+   * originates from createCheckout or createPayment.
+   */
+  private applyCustomer(
+    options: CheckoutCreate,
+    customer: unknown,
+  ): void {
+    if (isIdCustomer(customer)) {
+      options.customerId = String(customer.id);
+    } else if (isEmailCustomer(customer)) {
+      options.customerEmail = customer.email;
+    }
+  }
+
   createCheckout = async (
     params: CreateCheckoutSchema,
   ): Promise<Checkout> => {
@@ -159,14 +175,7 @@ export class PolarProvider
       successUrl: data.success_url,
     };
 
-    if (
-      typeof data.customer === 'object' &&
-      'email' in data.customer
-    ) {
-      checkoutCreateOptions.customerEmail = data.customer.email;
-    } else if (typeof data.customer === 'string') {
-      checkoutCreateOptions.customerId = data.customer;
-    }
+    this.applyCustomer(checkoutCreateOptions, data.customer);
 
     if (data.billing) {
       checkoutCreateOptions.customerBillingAddress = {
@@ -468,11 +477,7 @@ export class PolarProvider
       products: data.item_id ? [data.item_id] : [],
     };
 
-    if (isIdCustomer(data.customer)) {
-      checkoutCreateOptions.customerId = String(data.customer.id);
-    } else if (isEmailCustomer(data.customer)) {
-      checkoutCreateOptions.customerEmail = data.customer.email;
-    }
+    this.applyCustomer(checkoutCreateOptions, data.customer);
 
     if (data.billing) {
       checkoutCreateOptions.customerBillingAddress = {

@@ -136,10 +136,32 @@ export class PayPalProvider
     this.isSandbox = isSandbox;
   }
 
-  /**
-   * Checkout management
-   * In PayPal, Order IS the checkout
-   */
+  private buildPayer(customer: unknown) {
+    return {
+      ...(isIdCustomer(customer) && {
+        payerId: String(customer.id),
+      }),
+      ...(isEmailCustomer(customer) && {
+        emailAddress: customer.email,
+      }),
+    };
+  }
+
+  private async submitOrder(
+    body: Parameters<OrdersController['createOrder']>[0]['body'],
+    method: string,
+  ) {
+    try {
+      const order = await this.ordersController.createOrder({ body });
+      return order.result;
+    } catch (error) {
+      throw new OperationFailedError(method, this.providerName, {
+        cause:
+          error instanceof Error ? error : new Error('Unknown error'),
+      });
+    }
+  }
+
   createCheckout = async (
     params: CreateCheckoutSchema,
   ): Promise<Checkout> => {
@@ -184,15 +206,7 @@ export class PayPalProvider
       OrdersController['createOrder']
     >[0]['body'] = {
       intent: CheckoutPaymentIntent.Capture,
-      payer: {
-        ...(typeof data.customer === 'string' && {
-          payerId: data.customer,
-        }),
-        ...(typeof data.customer === 'object' &&
-          'email' in data.customer && {
-            emailAddress: data.customer.email,
-          }),
-      },
+      payer: this.buildPayer(data.customer),
       purchaseUnits: [
         {
           amount: {
@@ -244,24 +258,12 @@ export class PayPalProvider
       };
     }
 
-    try {
-      const order = await this.ordersController.createOrder({
-        body: orderOptionsBody,
-      });
+    const result = await this.submitOrder(
+      orderOptionsBody,
+      'createCheckout',
+    );
 
-      return Checkout$inboundSchema(order.result);
-    } catch (error) {
-      throw new OperationFailedError(
-        'createCheckout',
-        this.providerName,
-        {
-          cause:
-            error instanceof Error
-              ? error
-              : new Error('Unknown error'),
-        },
-      );
-    }
+    return Checkout$inboundSchema(result);
   };
 
   retrieveCheckout = async (id: string): Promise<Checkout> => {
@@ -427,7 +429,10 @@ export class PayPalProvider
   createPayment = async (
     params: CreatePaymentSchema,
   ): Promise<Payment> => {
-    const stringifiedMetadata = JSON.stringify(params.metadata);
+    // metadata is optional on CreatePaymentSchema (unlike checkout's
+    // required-nullable field) - JSON.stringify(undefined) is itself
+    // undefined, so guard against that before reading .length.
+    const stringifiedMetadata = JSON.stringify(params.metadata ?? {});
 
     if (stringifiedMetadata.length > PAYPAL_METADATA_MAX_LENGTH) {
       throw new ConstraintViolationError(
@@ -444,14 +449,7 @@ export class PayPalProvider
       OrdersController['createOrder']
     >[0]['body'] = {
       intent: CheckoutPaymentIntent.Capture,
-      payer: {
-        ...(isIdCustomer(params.customer) && {
-          payerId: String(params.customer.id),
-        }),
-        ...(isEmailCustomer(params.customer) && {
-          emailAddress: params.customer.email,
-        }),
-      },
+      payer: this.buildPayer(params.customer),
       purchaseUnits: [
         {
           amount: {
@@ -483,24 +481,12 @@ export class PayPalProvider
       };
     }
 
-    try {
-      const order = await this.ordersController.createOrder({
-        body: orderOptionsBody,
-      });
+    const result = await this.submitOrder(
+      orderOptionsBody,
+      'createPayment',
+    );
 
-      return Payment$inboundSchema(order.result);
-    } catch (error) {
-      throw new OperationFailedError(
-        'createPayment',
-        this.providerName,
-        {
-          cause:
-            error instanceof Error
-              ? error
-              : new Error('Unknown error'),
-        },
-      );
-    }
+    return Payment$inboundSchema(result);
   };
 
   updatePayment = async (

@@ -52,24 +52,19 @@ npm install @paykit-sdk/redsys
 
 Redsys uses an **inSite** iframe flow — customers enter card details directly on your page via secure iframes hosted by Redsys, with no redirect to an external payment page.
 
-1. **`createCheckout`** — generates HMAC-signed merchant parameters for the inSite iframe.
+1. **`paykit.checkouts.create`** — generates HMAC-signed merchant parameters for the inSite iframe.
 2. **Frontend loads inSite** — your page loads `redsysV3.js` and renders the card input form.
 3. **User enters card** — Redsys returns an `operationId` via callback.
-4. **`createPayment`** — your backend calls the Redsys REST API with the `operationId` to execute the charge.
+4. **`paykit.payments.create`** — your backend calls the Redsys REST API with the `operationId` to execute the charge.
 5. **Webhooks** — Redsys POSTs server-side notifications to confirm payment status.
 
-<Warning>
-  Redsys does not support customers, subscriptions, or
-  retrieving/updating checkouts and payments. Capture is only
-  available when `transactionType` is set to `'1'`
-  (pre-authorization).
-</Warning>
+Redsys doesn't support customers, subscriptions, or retrieving/updating checkouts and payments. Capture is only available when `transactionType` is set to `'1'` (pre-authorization).
 
 Supported currencies: `EUR`, `USD`, `GBP`, `JPY`.
 
 ## Frontend integration
 
-After `createCheckout`, the checkout metadata includes everything the inSite iframe needs:
+After `paykit.checkouts.create`, the checkout metadata includes everything the inSite iframe needs:
 
 ```typescript
 const checkout = await paykit.checkouts.create({
@@ -193,4 +188,4 @@ await paykit.refunds.create({
 });
 ```
 
-The `metadata` passed to `createRefund` must include `currency`. The `orderId` is automatically extracted from the payment's stored metadata.
+The `metadata` passed to `paykit.refunds.create` must include `currency`. The `orderId` is automatically extracted from the payment's stored metadata.

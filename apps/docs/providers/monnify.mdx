@@ -45,13 +45,27 @@ npm install @paykit-sdk/monnify
 
 ## How it works
 
-Monnify uses OAuth 2.0 client credentials (API key + secret key) to obtain a short-lived access token before every API call. `createCheckout` calls `POST /v1/merchant/transactions/init-transaction` and returns a `checkoutUrl`. After payment, retrieve the transaction status with `retrievePayment(transactionReference)`. Amounts are in the standard currency unit (e.g. Naira for NGN).
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    amount: 5000, // in the standard currency unit (e.g. Naira)
+    currency: 'NGN',
+  },
+});
 
-<Warning>
-  Monnify does not support customer management, subscriptions, or
-  direct payment creation. Use `createCheckout` and `retrievePayment`
-  for the core payment flow.
-</Warning>
+// Redirect the customer to checkout.payment_url
+
+// Once they're back, confirm the payment
+const payment = await paykit.payments.retrieve(checkout.id);
+```
+
+Monnify only has one way to move money — a hosted redirect transaction — so `paykit.payments.create` uses the same flow as `paykit.checkouts.create`, just returns a `Payment` instead of a `Checkout`; it needs a `success_url` in `provider_metadata` since there's no other field for it to redirect to. Monnify doesn't support customer management or subscriptions.
 
 ## Webhooks
 
@@ -129,6 +143,18 @@ await paykit.checkouts.create({
   provider_metadata: {
     amount: 5000, // in the standard currency unit (e.g. Naira)
     currency: 'NGN',
+  },
+});
+
+// payment.provider_metadata requires success_url — Monnify still redirects
+// the customer even for a "direct" payment
+await paykit.payments.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  amount: 5000,
+  currency: 'NGN',
+  provider_metadata: {
+    success_url: 'https://example.com/success', // required
   },
 });
 

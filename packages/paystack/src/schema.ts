@@ -218,15 +218,19 @@ export interface PaystackTransaction {
   subaccount?: Record<string, unknown> | null;
 }
 
+/**
+ * Shape as returned by `unwrap()`, i.e. *after* `_toCamel` has run on
+ * Paystack's raw (snake_case) `/transaction/initialize` response.
+ */
 export interface PaystackInitializeResponse {
   /**
    * The authorization URL of the transaction
    */
-  authorization_url: string;
+  authorizationUrl: string;
   /**
    * The access code of the transaction
    */
-  access_code: string;
+  accessCode: string;
   /**
    * The reference of the transaction
    */

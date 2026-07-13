@@ -20,22 +20,20 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": [
-          "introduction",
-          "quickstart"
-        ]
+        "pages": ["introduction", "quickstart"]
       },
       {
         "group": "Providers",
         "pages": [
-          "providers/stripe",
+          "providers/chapa",
+          "providers/comgate",
+          "providers/gopay",
+          "providers/monnify",
+          "providers/paypal",
           "providers/paystack",
           "providers/polar",
-          "providers/paypal",
-          "providers/gopay",
-          "providers/comgate",
-          "providers/monnify",
-          "providers/redsys"
+          "providers/redsys",
+          "providers/stripe"
         ]
       },
       {
@@ -48,10 +46,7 @@
       },
       {
         "group": "Guides",
-        "pages": [
-          "custom-provider",
-          "adapters/medusajs"
-        ]
+        "pages": ["custom-provider", "adapters/medusajs"]
       }
     ]
   },

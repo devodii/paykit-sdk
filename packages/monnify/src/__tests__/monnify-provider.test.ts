@@ -1,6 +1,10 @@
-import { ConfigurationError, WebhookError } from '@paykit-sdk/core';
+import {
+  ConfigurationError,
+  InvalidTypeError,
+  WebhookError,
+} from '@paykit-sdk/core';
 import { sha512 } from 'js-sha512';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MonnifyProvider } from '../monnify-provider';
 
 const SECRET = 'monnify_test_secret';
@@ -130,6 +134,81 @@ describe('MonnifyProvider.handleWebhook', () => {
     ]);
   });
 
+  it.each(['ACTIVE', 'PENDING'])(
+    'maps MANDATE_UPDATE with status %s to subscription.created',
+    async mandateStatus => {
+      const body = JSON.stringify({
+        eventType: 'MANDATE_UPDATE',
+        eventData: { mandateStatus },
+      });
+
+      const events = await makeProvider().handleWebhook(
+        dto(body, sign(body)),
+        SECRET,
+      );
+
+      expect(events.map(e => e.type)).toEqual([
+        'monnify.MANDATE_UPDATE',
+        'subscription.created',
+      ]);
+    },
+  );
+
+  it('maps MANDATE_UPDATE with an unrecognized status to subscription.updated', async () => {
+    const body = JSON.stringify({
+      eventType: 'MANDATE_UPDATE',
+      eventData: { mandateStatus: 'SOMETHING_ELSE' },
+    });
+
+    const events = await makeProvider().handleWebhook(
+      dto(body, sign(body)),
+      SECRET,
+    );
+
+    expect(events.map(e => e.type)).toEqual([
+      'monnify.MANDATE_UPDATE',
+      'subscription.updated',
+    ]);
+  });
+
+  it.each([
+    ['SUCCESSFUL_TRANSACTION', 'payment.created'],
+    ['SUCCESSFUL_TRANSACTION_OFFLINE', 'payment.created'],
+    ['SETTLEMENT', 'payment.updated'],
+    ['SUCCESSFUL_REFUND', 'refund.created'],
+    ['FAILED_REFUND', 'refund.created'],
+  ])('maps %s to %s', async (eventType, paykitType) => {
+    const body = JSON.stringify({
+      eventType,
+      eventData: { transactionReference: 'MNFY|3' },
+    });
+
+    const events = await makeProvider().handleWebhook(
+      dto(body, sign(body)),
+      SECRET,
+    );
+
+    expect(events.map(e => e.type)).toEqual([
+      `monnify.${eventType}`,
+      paykitType,
+    ]);
+  });
+
+  it('emits only the raw event for ignored event types like CUSTOMER_CREATED', async () => {
+    const body = JSON.stringify({
+      eventType: 'CUSTOMER_CREATED',
+      eventData: { customerEmail: 'buyer@example.com' },
+    });
+
+    const events = await makeProvider().handleWebhook(
+      dto(body, sign(body)),
+      SECRET,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('monnify.CUSTOMER_CREATED');
+  });
+
   it('emits only the raw event for unknown event types', async () => {
     const body = JSON.stringify({
       eventType: 'SOMETHING_NEW',
@@ -147,5 +226,149 @@ describe('MonnifyProvider.handleWebhook', () => {
       is_raw: true,
       data: { ref: 'x' },
     });
+  });
+});
+
+describe('MonnifyProvider.createCheckout / createPayment', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const jsonResponse = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  const tokenResponse = () =>
+    jsonResponse({
+      responseBody: { accessToken: 'tok_1', expiresIn: 3600 },
+    });
+
+  const initResponse = () =>
+    jsonResponse({
+      responseBody: {
+        transactionReference: 'MNFY|TX1',
+        checkoutUrl: 'https://sandbox.monnify.com/checkout/abc',
+      },
+    });
+
+  const queryResponse = (extra: Record<string, unknown> = {}) =>
+    jsonResponse({
+      responseBody: {
+        transactionReference: 'MNFY|TX1',
+        paymentReference: 'pay_ref_1',
+        amountPaid: 5000,
+        currencyCode: 'NGN',
+        customerEmail: 'buyer@example.com',
+        paymentStatus: 'PAID',
+        metaData: {},
+        ...extra,
+      },
+    });
+
+  /** token -> init-transaction -> query-transaction, in that order. */
+  const stubTransactionFlow = () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(initResponse())
+      .mockResolvedValueOnce(queryResponse());
+  };
+
+  it('createCheckout initializes a hosted transaction and maps the response', async () => {
+    stubTransactionFlow();
+
+    const checkout = await makeProvider().createCheckout({
+      customer: { email: 'buyer@example.com' },
+      item_id: 'plan_pro',
+      quantity: 1,
+      session_type: 'one_time',
+      success_url: 'https://example.com/success',
+      cancel_url: 'https://example.com/cancel',
+      metadata: null,
+      provider_metadata: { amount: '5000', currency: 'NGN' },
+    } as never);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const initCall = fetchMock.mock.calls[1];
+    expect(initCall[0]).toBe(
+      'https://sandbox.monnify.com/api/v1/merchant/transactions/init-transaction',
+    );
+    const initBody = JSON.parse(initCall[1].body as string);
+    expect(initBody.amount).toBe('5000');
+    expect(initBody.currencyCode).toBe('NGN');
+    expect(initBody.redirectUrl).toBe('https://example.com/success');
+    expect(initBody.customerEmail).toBe('buyer@example.com');
+
+    expect(checkout.payment_url).toBe(
+      'https://sandbox.monnify.com/checkout/abc',
+    );
+    expect(checkout.amount).toBe(5000);
+    expect(checkout.currency).toBe('NGN');
+  });
+
+  it('createCheckout throws InvalidTypeError for an id-based customer', async () => {
+    await expect(
+      makeProvider().createCheckout({
+        customer: { id: 'cus_1' },
+        item_id: 'plan_pro',
+        quantity: 1,
+        session_type: 'one_time',
+        success_url: 'https://example.com/success',
+        cancel_url: 'https://example.com/cancel',
+        metadata: null,
+        provider_metadata: { amount: '5000', currency: 'NGN' },
+      } as never),
+    ).rejects.toThrow(InvalidTypeError);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('createPayment reuses the same hosted-transaction flow as createCheckout', async () => {
+    stubTransactionFlow();
+
+    const payment = await makeProvider().createPayment({
+      customer: { email: 'buyer@example.com' },
+      amount: 5000,
+      currency: 'NGN',
+      item_id: 'plan_pro',
+      capture_method: 'automatic',
+      provider_metadata: { success_url: 'https://example.com/success' },
+    } as never);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    const initCall = fetchMock.mock.calls[1];
+    expect(initCall[0]).toBe(
+      'https://sandbox.monnify.com/api/v1/merchant/transactions/init-transaction',
+    );
+    const initBody = JSON.parse(initCall[1].body as string);
+    expect(initBody.amount).toBe('5000');
+    expect(initBody.redirectUrl).toBe('https://example.com/success');
+
+    expect(payment.status).toBe('succeeded');
+    expect(payment.amount).toBe(5000);
+  });
+
+  it('createPayment requires success_url in provider_metadata', async () => {
+    await expect(
+      makeProvider().createPayment({
+        customer: { email: 'buyer@example.com' },
+        amount: 5000,
+        currency: 'NGN',
+        item_id: 'plan_pro',
+        capture_method: 'automatic',
+      } as never),
+    ).rejects.toThrow(/success_url/);
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

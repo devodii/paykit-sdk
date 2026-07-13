@@ -170,6 +170,30 @@ export class GoPayProvider
     });
   }
 
+  private async submitPayment(
+    request: GoPayPaymentRequest,
+    method: string,
+  ): Promise<GoPayPaymentBaseResponse> {
+    const response =
+      await this._client.post<GoPayPaymentBaseResponse>(
+        '/payments/payment',
+        {
+          body: JSON.stringify(request),
+          headers: await this.tokenManager.getAuthHeaders(),
+        },
+      );
+
+    if (!response.ok) {
+      throw new OperationFailedError(method, this.providerName, {
+        cause: new Error(
+          `Failed to submit payment: ${JSON.stringify(response.error ?? response)}`,
+        ),
+      });
+    }
+
+    return response.value;
+  }
+
   createCheckout = async (
     params: CreateCheckoutSchema<GoPayMetadata['checkout']>,
   ): Promise<Checkout> => {
@@ -259,26 +283,12 @@ export class GoPayProvider
       })),
     };
 
-    const response =
-      await this._client.post<GoPayPaymentBaseResponse>(
-        '/payments/payment',
-        {
-          body: JSON.stringify(goPayRequest),
-          headers: await this.tokenManager.getAuthHeaders(),
-        },
-      );
+    const responseValue = await this.submitPayment(
+      goPayRequest,
+      'createCheckout',
+    );
 
-    if (!response.ok) {
-      throw new OperationFailedError(
-        'createCheckout',
-        this.providerName,
-        {
-          cause: new Error('Failed to create checkout'),
-        },
-      );
-    }
-
-    return Checkout$inboundSchema(response.value);
+    return Checkout$inboundSchema(responseValue);
   };
 
   retrieveCheckout = async (id: string): Promise<Checkout | null> => {
@@ -756,8 +766,11 @@ export class GoPayProvider
       preauthorization: false, // automatically captures the payment
       additional_params: Object.entries({
         ...data.metadata,
+        // Must use the same key ("item", not "itemId") that
+        // Payment$inboundSchema reads back out of additional_params -
+        // createCheckout uses this same key for the same reason.
         [PAYKIT_METADATA_KEY]: JSON.stringify({
-          itemId: data.item_id,
+          item: data.item_id,
           qty: 1,
         }),
       }).map(([name, value]) => ({
@@ -766,28 +779,12 @@ export class GoPayProvider
       })),
     };
 
-    const response =
-      await this._client.post<GoPayPaymentBaseResponse>(
-        '/payments/payment',
-        {
-          body: JSON.stringify(goPayRequest),
-          headers: await this.tokenManager.getAuthHeaders(),
-        },
-      );
+    const responseValue = await this.submitPayment(
+      goPayRequest,
+      'createPayment',
+    );
 
-    if (!response.ok) {
-      throw new OperationFailedError(
-        'createPayment',
-        this.providerName,
-        {
-          cause: new Error(
-            `Failed to create payment: ${JSON.stringify(response.error ?? response)}`,
-          ),
-        },
-      );
-    }
-
-    return Payment$inboundSchema(response.value);
+    return Payment$inboundSchema(responseValue);
   };
 
   retrievePayment = async (id: string): Promise<Payment | null> => {

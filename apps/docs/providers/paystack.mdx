@@ -40,7 +40,25 @@ npm install @paykit-sdk/paystack
 
 ## How it works
 
-Paystack uses an initialize-then-verify flow. `createCheckout` calls `POST /transaction/initialize` and returns an `authorization_url`. After payment, retrieve the transaction with `retrievePayment(reference)`. Amounts are in the smallest currency unit (kobo for NGN).
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'PLN_abc123',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    amount: 500000, // in kobo (NGN) or smallest currency unit
+    currency: 'NGN',
+  },
+});
+
+// Redirect the customer to checkout.payment_url
+
+// Once they're back, confirm the payment
+const payment = await paykit.payments.retrieve(checkout.id);
+```
 
 ## Webhooks
 
@@ -88,6 +106,20 @@ await webhook.handle({
   fullUrl: request.url,
 });
 ```
+
+| Raw event                                        | PayKit event                            |
+| ------------------------------------------------ | --------------------------------------- |
+| `paystack.charge.success`                        | `payment.updated` + `invoice.generated` |
+| `paystack.charge.failed`                         | `payment.failed`                        |
+| `paystack.customer.create`                       | `customer.created`                      |
+| `paystack.customeridentification.success/failed` | `customer.updated`                      |
+| `paystack.subscription.create`                   | `subscription.created`                  |
+| `paystack.subscription.not_renew/disable`        | `subscription.canceled`                 |
+| `paystack.invoice.create/update`                 | `payment.created`                       |
+| `paystack.invoice.payment_failed`                | `payment.failed`                        |
+| `paystack.refund.pending/processed/failed`       | `refund.created`                        |
+
+Everything else — disputes, dedicated accounts, payment requests, transfers — is available as a raw event only.
 
 ### Raw Paystack events
 

@@ -45,15 +45,22 @@ npm install @paykit-sdk/comgate
 
 ## How it works
 
-Comgate authenticates via HTTP Basic (merchant ID + secret, base64-encoded). `createCheckout` calls `POST /v2.0/paymentRedirect/merchant/{merchant}` and redirects the user to Comgate's hosted payment page — the returned checkout object is `null` because the redirect is handled automatically. After payment, Comgate posts a webhook with the transaction status.
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  amount: 2900,
+  currency: 'CZK',
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+});
 
-`createPayment` (non-hosted) calls `POST /v2.0/payment` and requires the customer to be identified by `id`. Currency defaults to `CZK` if not set.
+// Redirect the customer to checkout.payment_url
+```
 
-<Warning>
-  Comgate does not support customers, subscriptions, or updating
-  checkouts/payments. It also does not support retrieving checkouts —
-  use `retrievePayment` to look up transaction status instead.
-</Warning>
+Comgate doesn't support customers, subscriptions, or updating checkouts/payments. It also doesn't support retrieving checkouts — use `paykit.payments.retrieve` to look up transaction status instead.
 
 ## Webhooks
 

@@ -40,9 +40,20 @@ npm install @paykit-sdk/polar
 
 ## How it works
 
-Polar uses the official `@polar-sh/sdk` under the hood. Both `createPayment` and `createCheckout` create a Polar checkout session — the difference is that `createCheckout` is the hosted redirect flow. Polar auto-captures payments, so `capturePayment` simply returns the current payment state.
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'product_abc123',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+});
 
-Subscriptions are created through checkouts only — calling `createSubscription` directly throws `ProviderNotSupportedError`. When a customer purchases a subscription product via a checkout, Polar fires the `subscription.created` webhook event.
+// Redirect the customer to checkout.payment_url
+```
+
+Subscriptions are created through checkouts, not `paykit.subscriptions.create` directly — Polar fires `subscription.created` once the customer completes a subscription checkout.
 
 ## Webhooks
 

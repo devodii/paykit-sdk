@@ -150,7 +150,7 @@ export const Checkout$inboundSchema = (
   return {
     id: init.reference,
     customer,
-    payment_url: init.authorization_url,
+    payment_url: init.authorizationUrl,
     metadata:
       Object.keys(metadata).length > 0
         ? (metadata as Record<string, string>)

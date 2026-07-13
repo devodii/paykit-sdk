@@ -66,6 +66,86 @@ describe('GoPayProvider constructor', () => {
   });
 });
 
+describe('GoPayProvider.createCheckout / createPayment', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const stubTokenThenPayment = (payment: unknown) => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(jsonResponse(payment));
+  };
+
+  it('createCheckout stores item metadata under the "item" key', async () => {
+    stubTokenThenPayment(
+      paymentFixture('CREATED', { gw_url: 'https://gw.gopay.com/1' }),
+    );
+
+    await makeProvider().createCheckout({
+      customer: { email: 'buyer@example.com' },
+      item_id: 'my-product',
+      quantity: 2,
+      session_type: 'one_time',
+      success_url: 'https://example.com/success',
+      cancel_url: 'https://example.com/cancel',
+      metadata: null,
+      provider_metadata: { amount: '1000', currency: 'CZK' },
+    } as never);
+
+    const [, options] = fetchMock.mock.calls[1];
+    const body = JSON.parse((options as { body: string }).body);
+    const paykitParam = body.additional_params.find(
+      (p: { name: string }) => p.name === '__paykit',
+    );
+    const stored = JSON.parse(paykitParam.value);
+    expect(stored).toMatchObject({ item: 'my-product', qty: 2 });
+  });
+
+  it('createPayment stores item metadata under the same "item" key as createCheckout, and round-trips item_id', async () => {
+    // Response echoes back exactly what createPayment would have sent,
+    // so this also verifies Payment$inboundSchema recovers item_id.
+    stubTokenThenPayment(
+      paymentFixture('CREATED', {
+        additional_params: [
+          {
+            name: '__paykit',
+            value: JSON.stringify({ item: 'my-product', qty: 1 }),
+          },
+        ],
+      }),
+    );
+
+    const payment = await makeProvider().createPayment({
+      customer: { email: 'buyer@example.com' },
+      amount: 1000,
+      currency: 'CZK',
+      item_id: 'my-product',
+      capture_method: 'automatic',
+      provider_metadata: {
+        success_url: 'https://example.com/success',
+      },
+    } as never);
+
+    const [, options] = fetchMock.mock.calls[1];
+    const body = JSON.parse((options as { body: string }).body);
+    const paykitParam = body.additional_params.find(
+      (p: { name: string }) => p.name === '__paykit',
+    );
+    const stored = JSON.parse(paykitParam.value);
+    expect(stored).toMatchObject({ item: 'my-product' });
+
+    expect(payment.item_id).toBe('my-product');
+  });
+});
+
 describe('GoPayProvider.handleWebhook', () => {
   const fetchMock = vi.fn();
 
@@ -184,6 +264,80 @@ describe('GoPayProvider.handleWebhook', () => {
 
     expect(events).toHaveLength(1);
     expect(events[0].type).toBe('refund.created');
+  });
+
+  it('emits refund.created for PARTIALLY_REFUNDED', async () => {
+    stubTokenThenPayment(paymentFixture('PARTIALLY_REFUNDED'));
+
+    const events = await makeProvider().handleWebhook(
+      webhookDto(),
+      null,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('refund.created');
+  });
+
+  it('emits payment.updated for PAYMENT_METHOD_CHOSEN', async () => {
+    stubTokenThenPayment(paymentFixture('PAYMENT_METHOD_CHOSEN'));
+
+    const events = await makeProvider().handleWebhook(
+      webhookDto(),
+      null,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('payment.updated');
+  });
+
+  it('emits payment.updated for AUTHORIZED', async () => {
+    stubTokenThenPayment(paymentFixture('AUTHORIZED'));
+
+    const events = await makeProvider().handleWebhook(
+      webhookDto(),
+      null,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('payment.updated');
+    expect(events[0].data).toMatchObject({
+      status: 'requires_capture',
+    });
+  });
+
+  it('emits payment.failed for CANCELED', async () => {
+    stubTokenThenPayment(paymentFixture('CANCELED'));
+
+    const events = await makeProvider().handleWebhook(
+      webhookDto(),
+      null,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('payment.failed');
+  });
+
+  it('also emits subscription.canceled for CANCELED recurring payments with a stopped recurrence', async () => {
+    stubTokenThenPayment(
+      paymentFixture('CANCELED', {
+        recurrence: {
+          recurrence_cycle: 'MONTH',
+          recurrence_period: 1,
+          recurrence_date_to: '2027-01-01',
+          recurrence_state: 'STOPPED',
+        },
+      }),
+    );
+
+    const events = await makeProvider().handleWebhook(
+      webhookDto('id=3000006529&parent_id=3000006000'),
+      null,
+    );
+
+    expect(events.map(e => e.type)).toEqual([
+      'subscription.canceled',
+      'payment.failed',
+    ]);
   });
 
   it('throws WebhookError when the payment fetch fails', async () => {

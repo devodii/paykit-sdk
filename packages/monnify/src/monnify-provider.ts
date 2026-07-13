@@ -26,6 +26,7 @@ import {
   OAuth2TokenManager,
   PAYKIT_METADATA_KEY,
   createCheckoutSchema,
+  createPaymentSchema,
   createRefundSchema,
   ValidationError,
   validateRequiredKeys,
@@ -45,7 +46,20 @@ import {
   Refund$inboundSchema,
 } from './utils/mapper';
 
-interface MonnifyMetadata extends ProviderMetadataRegistry {}
+interface MonnifyMetadata extends ProviderMetadataRegistry {
+  checkout?: {
+    amount?: string;
+    currency?: string;
+  };
+  payment?: {
+    /**
+     * Monnify only supports hosted/redirect transactions - a
+     * direct createPayment call still needs somewhere to send the
+     * customer, same as createCheckout's success_url.
+     */
+    success_url?: string;
+  };
+}
 
 interface MonnifyRawEvents extends Record<string, any> {}
 
@@ -202,6 +216,66 @@ export class MonnifyProvider
     return altResponse.value.responseBody;
   }
 
+  /**
+   * Monnify only has one way to move money: a hosted redirect
+   * transaction. createCheckout and createPayment both boil down to
+   * this same call - only the input validation and the response
+   * mapper differ between the two.
+   */
+  private async initializeTransaction(params: {
+    email: string;
+    amount: string;
+    currency: string;
+    redirectUrl: string;
+    description: string;
+    metadata: Record<string, unknown>;
+  }): Promise<Record<string, any>> {
+    const paymentReference = crypto.randomUUID();
+
+    const body: Record<string, unknown> = {
+      amount: params.amount,
+      paymentReference,
+      paymentDescription: params.description,
+      currencyCode: params.currency,
+      redirectUrl: params.redirectUrl,
+      paymentMethods: ['CARD', 'ACCOUNT_TRANSFER'],
+      metadata: params.metadata,
+      customerEmail: params.email,
+    };
+
+    const response = await this._client.post<Record<string, any>>(
+      '/v1/merchant/transactions/init-transaction',
+      {
+        body: JSON.stringify(body),
+        headers: await this.tokenManager.getAuthHeaders(),
+      },
+    );
+
+    const responseBody = this.ensureResponse(
+      response,
+      'initializeTransaction',
+    );
+
+    const transactionReference = responseBody.transactionReference;
+    const checkoutUrl = responseBody.checkoutUrl;
+
+    // Query the transaction to get full details
+    const transactionResponse = await this._client.get<
+      Record<string, any>
+    >(
+      `/v2/merchant/transactions/query?paymentReference=${paymentReference}`,
+      { headers: await this.tokenManager.getAuthHeaders() },
+    );
+
+    const transactionData = this.ensureResponse(
+      transactionResponse,
+      'initializeTransaction',
+      'Failed to retrieve transaction details',
+    );
+
+    return { ...transactionData, checkoutUrl, transactionReference };
+  }
+
   createCheckout = async (
     params: CreateCheckoutSchema,
   ): Promise<Checkout> => {
@@ -232,15 +306,12 @@ export class MonnifyProvider
       'The following fields must be present in the provider_metadata of createCheckout: {keys}',
     );
 
-    const paymentReference = crypto.randomUUID();
-
-    const body: Record<string, unknown> = {
+    const transactionData = await this.initializeTransaction({
+      email: data.customer.email,
       amount,
-      paymentReference,
-      paymentDescription: `Checkout for ${data.item_id} x ${data.quantity} item${data.quantity > 1 ? 's' : ''}`,
-      currencyCode: currency,
+      currency,
       redirectUrl: data.success_url,
-      paymentMethods: ['CARD', 'ACCOUNT_TRANSFER'],
+      description: `Checkout for ${data.item_id} x ${data.quantity} item${data.quantity > 1 ? 's' : ''}`,
       metadata: {
         ...params.metadata,
         [PAYKIT_METADATA_KEY]: JSON.stringify({
@@ -248,44 +319,9 @@ export class MonnifyProvider
           qty: data.quantity,
         }),
       },
-      customerEmail: data.customer.email,
-    };
-
-    const response = await this._client.post<Record<string, any>>(
-      '/v1/merchant/transactions/init-transaction',
-      {
-        body: JSON.stringify(body),
-        headers: await this.tokenManager.getAuthHeaders(),
-      },
-    );
-
-    const responseBody = this.ensureResponse(
-      response,
-      'createCheckout',
-    );
-
-    const transactionReference = responseBody.transactionReference;
-    const checkoutUrl = responseBody.checkoutUrl;
-
-    // Query the transaction to get full details
-    const checkoutResponse = await this._client.get<
-      Record<string, any>
-    >(
-      `/v2/merchant/transactions/query?paymentReference=${paymentReference}`,
-      { headers: await this.tokenManager.getAuthHeaders() },
-    );
-
-    const checkoutData = this.ensureResponse(
-      checkoutResponse,
-      'createCheckout',
-      'Failed to retrieve checkout details',
-    );
-
-    return Checkout$inboundSchema({
-      ...checkoutData,
-      checkoutUrl,
-      transactionReference,
     });
+
+    return Checkout$inboundSchema(transactionData);
   };
 
   retrieveCheckout = async (id: string): Promise<Checkout> => {
@@ -432,16 +468,47 @@ export class MonnifyProvider
   };
 
   createPayment = async (
-    params: CreatePaymentSchema,
+    params: CreatePaymentSchema<MonnifyMetadata['payment']>,
   ): Promise<Payment> => {
-    throw new ProviderNotSupportedError(
+    const data = this.validateSchema(
+      createPaymentSchema,
+      params,
       'createPayment',
-      'Moniepoint',
-      {
-        reason: "Moniepoint doesn't support creating payments",
-        alternative: 'Use the createPayment method instead',
-      },
     );
+
+    if (!isEmailCustomer(data.customer)) {
+      throw new InvalidTypeError(
+        'customer',
+        'object (customer) with email',
+        'string (customer ID)',
+        {
+          provider: this.providerName,
+          method: 'createPayment',
+        },
+      );
+    }
+
+    // Monnify only supports hosted/redirect transactions - a direct
+    // payment still needs somewhere to send the customer.
+    const { success_url } = validateRequiredKeys(
+      ['success_url'],
+      (data.provider_metadata as Record<string, string>) ?? {},
+      'The following fields must be present in the provider_metadata of createPayment: {keys}',
+    );
+
+    const transactionData = await this.initializeTransaction({
+      email: data.customer.email,
+      amount: data.amount.toString(),
+      currency: data.currency,
+      redirectUrl: success_url,
+      description: `Payment for ${data.item_id}`,
+      metadata: {
+        ...data.metadata,
+        [PAYKIT_METADATA_KEY]: JSON.stringify({ item: data.item_id }),
+      },
+    });
+
+    return Payment$inboundSchema(transactionData);
   };
 
   retrievePayment = async (id: string): Promise<Payment | null> => {

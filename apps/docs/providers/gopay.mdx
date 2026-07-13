@@ -49,20 +49,23 @@ npm install @paykit-sdk/gopay
 
 ## How it works
 
-GoPay authenticates using OAuth 2.0 client credentials (`scope=payment-all`). `createCheckout` calls `POST /payments/payment` and returns a `gw_url` that the customer is redirected to. After the customer pays, GoPay calls your `webhookUrl` via GET with a `?id=<paymentId>` query parameter. The handler fetches the payment state from GoPay to verify it.
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  item_id: 'my-product',
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: { amount: '2900', currency: 'CZK' },
+});
 
-Subscriptions (recurring payments) are created as an initial payment with a `recurrence` object. Subsequent charges are triggered automatically by GoPay or on demand via GoPay's `createRecurrence` API.
+// Redirect the customer to checkout.payment_url
+```
 
-<Warning>
-  GoPay sends webhook notifications via GET requests. Your handler
-  must accept GET, not POST.
-</Warning>
+Recurring payments are created as an initial payment with a `recurrence` object — subsequent charges are triggered automatically by GoPay, or on demand via GoPay's `createRecurrence` API.
 
-<Warning>
-  GoPay does not support customer management. `createCustomer`,
-  `retrieveCustomer`, `updateCustomer`, and `deleteCustomer` all throw
-  `ProviderNotSupportedError`.
-</Warning>
+GoPay sends webhook notifications via **GET**, not POST, so your route handler needs to accept GET requests. It also doesn't support customer management.
 
 ## Webhooks
 

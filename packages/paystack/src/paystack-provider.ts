@@ -160,6 +160,34 @@ export class PaystackProvider
     return this._toCamel(result.value.data) as T;
   }
 
+  private async initializeTransaction(params: {
+    email: string;
+    amount: number;
+    currency: string;
+    metadata: Record<string, unknown>;
+    callbackUrl?: string;
+    providerMetadata?: Record<string, unknown>;
+  }): Promise<PaystackInitializeResponse> {
+    const body = {
+      ...params.providerMetadata,
+      email: params.email,
+      amount: params.amount,
+      currency: params.currency.toUpperCase(),
+      reference: crypto.randomUUID(),
+      ...(params.callbackUrl && { callback_url: params.callbackUrl }),
+      metadata: stringifyMetadataValues(params.metadata) as Record<
+        string,
+        string
+      >,
+    };
+
+    const response = await this._client.post<
+      PaystackResponse<PaystackInitializeResponse>
+    >('/transaction/initialize', { body: JSON.stringify(body) });
+
+    return this.unwrap(response, 'initializeTransaction');
+  }
+
   createCheckout = async (
     params: CreateCheckoutSchema<PaystackMetadata['checkout']>,
   ): Promise<Checkout> => {
@@ -197,32 +225,25 @@ export class PaystackProvider
       }),
     };
 
-    const body = {
+    const parsedAmount = parseInt(amount, 10);
+    const upperCurrency = currency.toUpperCase();
+
+    const initData = await this.initializeTransaction({
       email: data.customer.email,
-      amount: parseInt(amount, 10),
-      currency: currency.toUpperCase(),
-      reference: crypto.randomUUID(),
-      callback_url: data.success_url,
-      metadata: stringifyMetadataValues(metadata) as Record<
-        string,
-        string
-      >,
-      ...data.provider_metadata,
-    };
-
-    const response = await this._client.post<
-      PaystackResponse<PaystackInitializeResponse>
-    >('/transaction/initialize', { body: JSON.stringify(body) });
-
-    const initData = await this.unwrap(response, 'createCheckout');
+      amount: parsedAmount,
+      currency: upperCurrency,
+      metadata,
+      callbackUrl: data.success_url,
+      providerMetadata: data.provider_metadata,
+    });
 
     const rawCustomer = await this._client.get<
       PaystackResponse<PaystackCustomer>
     >(`/customer/${encodeURIComponent(data.customer.email)}`);
 
     return Checkout$inboundSchema(initData, {
-      amount: body.amount,
-      currency: body.currency,
+      amount: parsedAmount,
+      currency: upperCurrency,
       customer: await this.unwrap(rawCustomer, 'createCheckout'),
       metadata: JSON.stringify(metadata),
     } satisfies Partial<PaystackTransaction>);
@@ -239,8 +260,8 @@ export class PaystackProvider
 
     return Checkout$inboundSchema(
       {
-        authorization_url: '',
-        access_code: '',
+        authorizationUrl: '',
+        accessCode: '',
         reference: txn.reference,
       },
       txn,
@@ -527,17 +548,6 @@ export class PaystackProvider
       }),
     };
 
-    const reference = crypto.randomUUID();
-
-    const body = {
-      email,
-      amount: data.amount,
-      currency: data.currency,
-      reference,
-      metadata,
-      ...data.provider_metadata,
-    };
-
     if (this.opts.debug) {
       console.info('[Paystack] Initializing transaction', {
         email,
@@ -545,11 +555,13 @@ export class PaystackProvider
       });
     }
 
-    const response = await this._client.post<
-      PaystackResponse<PaystackInitializeResponse>
-    >('/transaction/initialize', { body: JSON.stringify(body) });
-
-    const initData = await this.unwrap(response, 'createPayment');
+    const initData = await this.initializeTransaction({
+      email,
+      amount: data.amount,
+      currency: data.currency,
+      metadata,
+      providerMetadata: data.provider_metadata,
+    });
 
     return {
       id: initData.reference,
@@ -562,7 +574,7 @@ export class PaystackProvider
       ) as Record<string, string>,
       item_id: data.item_id ?? null,
       requires_action: true,
-      payment_url: initData.authorization_url,
+      payment_url: initData.authorizationUrl,
     };
   };
 

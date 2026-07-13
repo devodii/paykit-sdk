@@ -194,6 +194,38 @@ describe('ComgateProvider.handleWebhook', () => {
     });
   });
 
+  it('emits payment.created for PENDING', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(verifiedStatusResponse('PENDING')),
+    );
+
+    const events = await makeProvider().handleWebhook(
+      urlencodedWebhookDto({ status: 'PENDING' }),
+      null,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('payment.created');
+    expect(events[0].data).toMatchObject({ status: 'pending' });
+  });
+
+  it('emits payment.updated for AUTHORIZED', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(verifiedStatusResponse('AUTHORIZED')),
+    );
+
+    const events = await makeProvider().handleWebhook(
+      urlencodedWebhookDto({ status: 'AUTHORIZED' }),
+      null,
+    );
+
+    expect(events).toHaveLength(1);
+    expect(events[0].type).toBe('payment.updated');
+    expect(events[0].data).toMatchObject({
+      status: 'requires_capture',
+    });
+  });
+
   it('throws WebhookError for unmapped Comgate statuses', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse(verifiedStatusResponse('AUTHORIZED')),

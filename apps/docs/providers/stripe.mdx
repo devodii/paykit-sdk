@@ -104,7 +104,29 @@ paykit.webhooks
   });
 ```
 
-All Stripe event types (`stripe.<Stripe.Event.Type>`) are available and typed.
+All Stripe event types (`stripe.<Stripe.Event.Type>`) are available and typed. A subset also emit a standard PayKit event:
+
+| Raw event                                         | PayKit event                                     |
+| ------------------------------------------------- | ------------------------------------------------ |
+| `stripe.checkout.session.completed`               | `invoice.generated` (one-time checkouts only)    |
+| `stripe.invoice.paid`                             | `invoice.generated` (new/renewing subscriptions) |
+| `stripe.customer.created`                         | `customer.created`                               |
+| `stripe.customer.updated`                         | `customer.updated`                               |
+| `stripe.customer.deleted`                         | `customer.deleted`                               |
+| `stripe.customer.subscription.created`            | `subscription.created`                           |
+| `stripe.customer.subscription.updated`            | `subscription.updated`                           |
+| `stripe.customer.subscription.deleted`            | `subscription.canceled`                          |
+| `stripe.payment_intent.created`                   | `payment.created`                                |
+| `stripe.payment_intent.succeeded`                 | `payment.succeeded`                              |
+| `stripe.payment_intent.canceled`                  | `payment.failed`                                 |
+| `stripe.payment_intent.payment_failed`            | `payment.failed`                                 |
+| `stripe.payment_intent.processing`                | `payment.updated`                                |
+| `stripe.payment_intent.requires_action`           | `payment.updated`                                |
+| `stripe.payment_intent.amount_capturable_updated` | `payment.updated`                                |
+| `stripe.payment_intent.partially_funded`          | `payment.updated`                                |
+| `stripe.refund.created`                           | `refund.created`                                 |
+
+Everything else — including `stripe.charge.*` — is available as a raw event only.
 
 ## provider_metadata
 

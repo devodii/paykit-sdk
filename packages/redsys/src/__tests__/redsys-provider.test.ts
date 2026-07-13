@@ -251,6 +251,21 @@ describe('RedsysProvider.handleWebhook', () => {
     });
   });
 
+  it('treats any 00xx response code as approved, not just 0000', async () => {
+    const events = await makeProvider().handleWebhook(
+      webhookDto({
+        Ds_Order: 'GHI789',
+        Ds_Response: '0099',
+        Ds_Amount: '1500',
+        Ds_AuthorisationCode: '888888',
+      }),
+      '',
+    );
+
+    expect(events[1].type).toBe('payment.succeeded');
+    expect(events[1].data).toMatchObject({ status: 'succeeded' });
+  });
+
   it('emits payment.failed for a declined payment', async () => {
     const events = await makeProvider().handleWebhook(
       webhookDto({
