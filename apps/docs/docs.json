@@ -3,11 +3,19 @@
   "theme": "mint",
   "name": "PayKit",
   "colors": {
-    "primary": "#67E3AD",
-    "light": "#67E3AD",
-    "dark": "#006139"
+    "primary": "#171717",
+    "light": "#e5e5e5",
+    "dark": "#0a0a0a"
   },
   "favicon": "/favicon.svg",
+  "fonts": {
+    "heading": {
+      "family": "Instrument Serif"
+    },
+    "body": {
+      "family": "DM Sans"
+    }
+  },
   "navigation": {
     "groups": [
       {
@@ -57,12 +65,7 @@
         "label": "GitHub",
         "href": "https://github.com/usepaykit/paykit-sdk"
       }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "usepaykit.dev",
-      "href": "https://usepaykit.dev"
-    }
+    ]
   },
   "footer": {
     "socials": {
