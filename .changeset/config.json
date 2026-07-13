@@ -10,6 +10,10 @@
   "ignore": [
     "@paykit-sdk/registry",
     "web",
-    "@paykit-sdk/custom-provider"
-  ]
+    "@paykit-sdk/custom-provider",
+    "telemetry"
+  ],
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  }
 }

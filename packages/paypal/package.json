@@ -34,7 +34,7 @@
     "@paypal/paypal-server-sdk": "^1.1.0"
   },
   "peerDependencies": {
-    "@paykit-sdk/core": ">=1.2.3"
+    "@paykit-sdk/core": "^1.2.3"
   },
   "publishConfig": {
     "access": "public"

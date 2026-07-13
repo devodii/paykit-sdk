@@ -12,4 +12,4 @@
 '@paykit-sdk/ui': minor
 ---
 
-chore: bump provider versions
+chore: bump provider versions and tighten core peer dependency range to ^1.2.3
