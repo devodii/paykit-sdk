@@ -1,14 +1,13 @@
 import * as React from 'react';
+import { cn } from '@/lib/utils';
 import {
   CheckCircle,
   XCircle,
   AlertCircle,
   Info,
   Loader2,
-  X,
 } from 'lucide-react';
 import { ExternalToast, Toaster as Sonner, toast } from 'sonner';
-import { cn } from '../lib/utils';
 
 interface ToasterProps {
   className?: string;
@@ -20,8 +19,6 @@ interface ToasterProps {
     | 'bottom-center'
     | 'bottom-right';
   expand?: boolean;
-  richColors?: boolean;
-  closeButton?: boolean;
   duration?: number;
 }
 
@@ -29,8 +26,6 @@ const Toaster = ({
   className,
   position = 'top-right',
   expand = false,
-  richColors = false,
-  closeButton = false,
   duration = 4000,
   ...props
 }: ToasterProps) => {
@@ -252,33 +247,3 @@ const Toast = {
 export { Toaster, Toast, toast };
 
 export type { ToasterProps };
-
-/**
- * @example
-* 
- * Next.js Layout
- * 
- * ```tsx
- * export default function RootLayout({ children }) {
-  return (
-    <html>
-      <body>
-        {children}
-        <Toaster />
-      </body>
-    </html>
-  );
-}
- * ```
- * 
- * ```tsx
- * import { Toast } from '@paykit-sdk/ui';
- *
- * Toast.success({ title: 'Success!', description: 'Your action was completed successfully' });
- * Toast.error({ title: 'Error!', description: 'Something went wrong' });
- * Toast.promise(apiCall(), {
- *   loading: 'Saving...',
- *   success: 'Saved successfully!',
- *   error: 'Failed to save'
- * });
- */

@@ -546,7 +546,10 @@ describe('ChapaProvider.handleWebhook', () => {
   it('maps charge.refunded to refund.created', async () => {
     const payload = {
       event: 'charge.refunded',
-      ...transactionFixture('refunded', { tx_ref: 'tx_4', amount: '150.00' }),
+      ...transactionFixture('refunded', {
+        tx_ref: 'tx_4',
+        amount: '150.00',
+      }),
     };
     const body = JSON.stringify(payload);
 
@@ -555,8 +558,15 @@ describe('ChapaProvider.handleWebhook', () => {
       SECRET,
     );
 
-    expect(events.map(e => e.type)).toEqual(['chapa.charge.refunded', 'refund.created']);
-    expect(events[1].data).toMatchObject({ id: 'tx_4', amount: 150, currency: 'ETB' });
+    expect(events.map(e => e.type)).toEqual([
+      'chapa.charge.refunded',
+      'refund.created',
+    ]);
+    expect(events[1].data).toMatchObject({
+      id: 'tx_4',
+      amount: 150,
+      currency: 'ETB',
+    });
   });
 
   it('maps charge.reversed to refund.created', async () => {
@@ -571,7 +581,10 @@ describe('ChapaProvider.handleWebhook', () => {
       SECRET,
     );
 
-    expect(events.map(e => e.type)).toEqual(['chapa.charge.reversed', 'refund.created']);
+    expect(events.map(e => e.type)).toEqual([
+      'chapa.charge.reversed',
+      'refund.created',
+    ]);
     expect(events[1].data).toMatchObject({ id: 'tx_5' });
   });
 

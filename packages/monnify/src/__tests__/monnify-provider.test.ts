@@ -4,7 +4,14 @@ import {
   WebhookError,
 } from '@paykit-sdk/core';
 import { sha512 } from 'js-sha512';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { MonnifyProvider } from '../monnify-provider';
 
 const SECRET = 'monnify_test_secret';
@@ -341,7 +348,9 @@ describe('MonnifyProvider.createCheckout / createPayment', () => {
       currency: 'NGN',
       item_id: 'plan_pro',
       capture_method: 'automatic',
-      provider_metadata: { success_url: 'https://example.com/success' },
+      provider_metadata: {
+        success_url: 'https://example.com/success',
+      },
     } as never);
 
     expect(fetchMock).toHaveBeenCalledTimes(3);

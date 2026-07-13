@@ -184,13 +184,14 @@ export const Invoice$inboundSchema = <
 export const Subscription$inboundSchema = (
   data: GoPaySubscriptionResponse,
 ): Subscription => {
-  const { item } = JSON.parse(
-    decodeHtmlEntities(
-      data.additional_params?.find(
-        param => param.name === PAYKIT_METADATA_KEY,
-      )?.value ?? '{}',
-    ),
-  );
+  const { item, billing_interval: storedBillingInterval } =
+    JSON.parse(
+      decodeHtmlEntities(
+        data.additional_params?.find(
+          param => param.name === PAYKIT_METADATA_KEY,
+        )?.value ?? '{}',
+      ),
+    );
 
   const billingIntervalMap: Record<
     string,
@@ -202,7 +203,34 @@ export const Subscription$inboundSchema = (
     ON_DEMAND: 'month',
   };
 
+  // GoPay's recurrence_cycle collapses `year` and `custom` intervals down
+  // to ON_DEMAND, so it can't tell them apart on its own. createSubscription
+  // stores the original interval in additional_params for exactly this
+  // reason - recover it here instead of re-deriving a lossy fallback from
+  // recurrence_cycle.
+  const parseStoredBillingInterval = (
+    stored: unknown,
+  ): Subscription['billing_interval'] | null => {
+    if (typeof stored !== 'string') return null;
+    if (
+      stored === 'day' ||
+      stored === 'week' ||
+      stored === 'month' ||
+      stored === 'year'
+    ) {
+      return stored;
+    }
+
+    const customMatch = /^custom:(\d+)ms$/.exec(stored);
+    if (customMatch) {
+      return { type: 'custom', durationMs: Number(customMatch[1]) };
+    }
+
+    return null;
+  };
+
   const billingInterval =
+    parseStoredBillingInterval(storedBillingInterval) ??
     billingIntervalMap[
       data.recurrence?.recurrence_cycle ?? 'ON_DEMAND'
     ];

@@ -8,6 +8,7 @@ import {
   vi,
 } from 'vitest';
 import { GoPayProvider } from '../gopay-provider';
+import { Subscription$inboundSchema } from '../utils/mapper';
 
 const makeProvider = () =>
   new GoPayProvider({
@@ -143,6 +144,298 @@ describe('GoPayProvider.createCheckout / createPayment', () => {
     expect(stored).toMatchObject({ item: 'my-product' });
 
     expect(payment.item_id).toBe('my-product');
+  });
+});
+
+describe('GoPayProvider.createSubscription', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const subscriptionFixture = (
+    extra: Record<string, unknown> = {},
+  ) => ({
+    id: 3000006542,
+    order_number: 'order_1',
+    state: 'CREATED',
+    amount: 1000,
+    currency: 'CZK',
+    payer: { contact: { email: 'buyer@example.com' } },
+    additional_params: [],
+    recurrence: {
+      recurrence_cycle: 'MONTH',
+      recurrence_period: 1,
+      recurrence_date_to: '2027-01-01',
+      recurrence_state: 'REQUESTED',
+    },
+    ...extra,
+  });
+
+  const stubTokenThenSubscription = (subscription: unknown) => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(jsonResponse(subscription));
+  };
+
+  const baseParams = {
+    customer: { email: 'buyer@example.com' },
+    item_id: 'plan_pro',
+    quantity: 1,
+    amount: 1000,
+    currency: 'CZK',
+    metadata: null,
+    provider_metadata: {
+      success_url: 'https://example.com/success',
+    },
+  };
+
+  it('sends an AUTO recurrence (MONTH) with recurrence_period for a monthly interval', async () => {
+    stubTokenThenSubscription(subscriptionFixture());
+
+    await makeProvider().createSubscription({
+      ...baseParams,
+      billing_interval: 'month',
+    } as never);
+
+    const [, options] = fetchMock.mock.calls[1];
+    const body = JSON.parse((options as { body: string }).body);
+
+    expect(body.recurrence).toMatchObject({
+      recurrence_cycle: 'MONTH',
+      recurrence_period: 1,
+    });
+    expect(body.recurrence.recurrence_date_to).toBeDefined();
+  });
+
+  it('falls back to ON_DEMAND with no recurrence_period for a yearly interval', async () => {
+    stubTokenThenSubscription(
+      subscriptionFixture({
+        recurrence: {
+          recurrence_cycle: 'ON_DEMAND',
+          recurrence_date_to: '2032-01-01',
+          recurrence_state: 'REQUESTED',
+        },
+      }),
+    );
+
+    await makeProvider().createSubscription({
+      ...baseParams,
+      billing_interval: 'year',
+    } as never);
+
+    const [, options] = fetchMock.mock.calls[1];
+    const body = JSON.parse((options as { body: string }).body);
+
+    expect(body.recurrence.recurrence_cycle).toBe('ON_DEMAND');
+    expect(body.recurrence).not.toHaveProperty('recurrence_period');
+
+    const paykitParam = body.additional_params.find(
+      (p: { name: string }) => p.name === '__paykit',
+    );
+    expect(JSON.parse(paykitParam.value)).toMatchObject({
+      billing_interval: 'year',
+    });
+  });
+
+  it('falls back to ON_DEMAND for a custom interval and stores it for round-tripping', async () => {
+    stubTokenThenSubscription(
+      subscriptionFixture({
+        recurrence: {
+          recurrence_cycle: 'ON_DEMAND',
+          recurrence_date_to: '2028-01-01',
+          recurrence_state: 'REQUESTED',
+        },
+      }),
+    );
+
+    await makeProvider().createSubscription({
+      ...baseParams,
+      billing_interval: { type: 'custom', durationMs: 604800000 },
+    } as never);
+
+    const [, options] = fetchMock.mock.calls[1];
+    const body = JSON.parse((options as { body: string }).body);
+
+    expect(body.recurrence.recurrence_cycle).toBe('ON_DEMAND');
+    expect(body.recurrence).not.toHaveProperty('recurrence_period');
+
+    const paykitParam = body.additional_params.find(
+      (p: { name: string }) => p.name === '__paykit',
+    );
+    expect(JSON.parse(paykitParam.value)).toMatchObject({
+      billing_interval: 'custom:604800000ms',
+    });
+  });
+});
+
+describe('GoPayProvider.updateSubscription', () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const subscriptionFixture = (
+    extra: Record<string, unknown> = {},
+  ) => ({
+    id: 3000006542,
+    order_number: 'order_1',
+    state: 'AUTHORIZED',
+    amount: 1000,
+    currency: 'CZK',
+    payer: { contact: { email: 'buyer@example.com' } },
+    additional_params: [],
+    recurrence: {
+      recurrence_cycle: 'ON_DEMAND',
+      recurrence_date_to: '2032-01-01',
+      recurrence_state: 'REQUESTED',
+    },
+    ...extra,
+  });
+
+  it('provider_metadata.amount posts to /payments/payment/{id}/create-recurrence, then re-fetches the parent subscription', async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse()) // fetched once, then cached
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 3000006621,
+          parent_id: 3000006542,
+          order_number: 'order_2',
+          state: 'CREATED',
+          amount: 500,
+          currency: 'CZK',
+          additional_params: [],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(subscriptionFixture()));
+
+    const subscription = await makeProvider().updateSubscription(
+      '3000006542',
+      {
+        metadata: { note: 'monthly' },
+        provider_metadata: {
+          amount: 500,
+          currency: 'czk',
+          order_description: 'Monthly charge',
+        },
+      } as never,
+    );
+
+    // Only 3 HTTP calls: the token is fetched once and cached, then reused
+    // for both the create-recurrence POST and the retrieveSubscription GET.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'https://gw.sandbox.gopay.com/api/payments/payment/3000006542/create-recurrence',
+    );
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[1][1] as { body: string }).body,
+    );
+    expect(body.amount).toBe(500);
+    expect(body.currency).toBe('CZK');
+    expect(body.order_description).toBe('Monthly charge');
+    const paykitParam = body.additional_params.find(
+      (p: { name: string }) => p.name === 'note',
+    );
+    expect(paykitParam.value).toBe('monthly');
+
+    // Returns the parent subscription (3000006542), not the child charge
+    // (3000006621) that create-recurrence just created.
+    expect(subscription.id).toBe('3000006542');
+  });
+
+  it('without provider_metadata.amount, just re-fetches the current subscription', async () => {
+    fetchMock
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(jsonResponse(subscriptionFixture()));
+
+    const subscription = await makeProvider().updateSubscription(
+      '3000006542',
+      { metadata: {} } as never,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'https://gw.sandbox.gopay.com/api/payments/payment/3000006542',
+    );
+    expect(subscription.id).toBe('3000006542');
+  });
+});
+
+describe('Subscription$inboundSchema', () => {
+  const recurringFixture = (
+    billingInterval: unknown,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    id: 3000006542,
+    order_number: 'order_1',
+    state: 'CREATED' as const,
+    amount: 1000,
+    currency: 'CZK',
+    payer: { contact: { email: 'buyer@example.com' } },
+    additional_params: [
+      {
+        name: '__paykit',
+        value: JSON.stringify({
+          item: 'plan_pro',
+          billing_interval: billingInterval,
+        }),
+      },
+    ],
+    recurrence: {
+      recurrence_cycle: 'ON_DEMAND',
+      recurrence_date_to: '2032-01-01',
+      recurrence_state: 'REQUESTED' as const,
+    },
+    ...extra,
+  });
+
+  it('recovers a yearly interval instead of collapsing ON_DEMAND to month', () => {
+    const subscription = Subscription$inboundSchema(
+      recurringFixture('year') as never,
+    );
+    expect(subscription.billing_interval).toBe('year');
+  });
+
+  it('recovers a custom interval instead of collapsing ON_DEMAND to month', () => {
+    const subscription = Subscription$inboundSchema(
+      recurringFixture('custom:604800000ms') as never,
+    );
+    expect(subscription.billing_interval).toEqual({
+      type: 'custom',
+      durationMs: 604800000,
+    });
+  });
+
+  it('falls back to the recurrence_cycle-derived interval when nothing was stored', () => {
+    const subscription = Subscription$inboundSchema({
+      id: 3000006542,
+      order_number: 'order_1',
+      state: 'CREATED',
+      amount: 1000,
+      currency: 'CZK',
+      payer: { contact: { email: 'buyer@example.com' } },
+      additional_params: [],
+      recurrence: {
+        recurrence_cycle: 'WEEK',
+        recurrence_period: 1,
+        recurrence_date_to: '2027-01-01',
+        recurrence_state: 'REQUESTED',
+      },
+    } as never);
+    expect(subscription.billing_interval).toBe('week');
   });
 });
 

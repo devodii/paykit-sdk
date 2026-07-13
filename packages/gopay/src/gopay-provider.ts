@@ -436,7 +436,7 @@ export class GoPayProvider
       if (isYear) {
         console.info(
           '[PayKit/GoPay] GoPay does not support yearly recurrence. Falling back to ON_DEMAND — ' +
-            'you must trigger each charge manually via createRecurrence(parentPaymentId, ...). ' +
+            'trigger each charge via paykit.subscriptions.update(id, { provider_metadata: { amount } }). ' +
             'See: https://doc.gopay.com/#recurring-on-demand',
         );
       }
@@ -446,20 +446,20 @@ export class GoPayProvider
         ).durationMs;
         console.info(
           `[PayKit/GoPay] Custom interval (${durationMs}ms) is not supported by GoPay. ` +
-            'Falling back to ON_DEMAND — trigger charges manually via createRecurrence(parentPaymentId, ...). ' +
+            'Falling back to ON_DEMAND — trigger each charge via paykit.subscriptions.update(id, { provider_metadata: { amount } }). ' +
             'See: https://doc.gopay.com/#recurring-on-demand',
         );
       }
       if (!isOnDemand) {
         console.info(
           `[PayKit/GoPay] AUTO recurrence (${recurrenceCycle}) — GoPay charges automatically each cycle. ` +
-            'No createRecurrence() call is needed. ' +
+            'No manual update() call is needed to collect charges. ' +
             'Set provider_metadata.end_date (ISO string, e.g. "2027-01-01") to control when the subscription ends. ' +
             'Defaults to 1 year from today.',
         );
       } else {
         console.info(
-          '[PayKit/GoPay] ON_DEMAND recurrence — you MUST call createRecurrence(parentPaymentId, ...) ' +
+          '[PayKit/GoPay] ON_DEMAND recurrence — you MUST call paykit.subscriptions.update(id, { provider_metadata: { amount } }) ' +
             'for each subsequent charge. GoPay will NOT charge automatically. ' +
             'Set provider_metadata.end_date (ISO string) to control the authorization window. ' +
             'Defaults to 1 year (custom interval) or 5 years (yearly interval).',
@@ -564,7 +564,9 @@ export class GoPayProvider
         [PAYKIT_METADATA_KEY]: JSON.stringify({
           item: data.item_id,
           qty: data.quantity,
-          // Store the original interval so createRecurrence callers know the intended cadence
+          // Store the original interval so Subscription$inboundSchema can
+          // recover it later - GoPay's recurrence_cycle collapses year and
+          // custom intervals down to ON_DEMAND and can't tell them apart.
           billing_interval: isCustom
             ? `custom:${(billingInterval as { type: 'custom'; durationMs: number }).durationMs}ms`
             : billingInterval,
@@ -596,10 +598,102 @@ export class GoPayProvider
     return Subscription$inboundSchema(response.value);
   };
 
+  /**
+   * `updateSubscription` is GoPay's real mechanism for collecting each
+   * charge on an ON_DEMAND recurring mandate - GoPay never charges these
+   * automatically, so every subsequent payment has to be triggered
+   * explicitly via `POST /payments/payment/{id}/create-recurrence`.
+   * Supply the charge via `provider_metadata.amount` (and optionally
+   * `currency`/`order_number`/`order_description`/`items`); `params.metadata`
+   * is stored on that charge the same way createCheckout/createPayment do.
+   *
+   * For AUTO cycles (DAY/WEEK/MONTH), GoPay already charges on its own
+   * schedule and there's nothing to trigger - calling this without
+   * `provider_metadata.amount` just re-fetches the current subscription.
+   *
+   * @see https://doc.gopay.com/#recurring-payments
+   */
   updateSubscription = async (
     id: string,
-    params: UpdateSubscriptionSchema,
+    params: UpdateSubscriptionSchema<GoPayMetadata['subscription']>,
   ): Promise<Subscription> => {
+    const chargeParams = params.provider_metadata as
+      | {
+          amount?: number;
+          currency?: string;
+          order_number?: string;
+          order_description?: string;
+          items?: Array<{
+            name: string;
+            amount: number;
+            count?: number;
+          }>;
+        }
+      | undefined;
+
+    if (chargeParams?.amount) {
+      const body = {
+        amount: chargeParams.amount,
+        currency: (chargeParams.currency ?? 'CZK').toUpperCase(),
+        order_number:
+          chargeParams.order_number ??
+          crypto.randomBytes(8).toString('hex').slice(0, 15),
+        order_description:
+          chargeParams.order_description ??
+          `Recurring charge for payment ${id}`,
+        items: chargeParams.items ?? [
+          {
+            name: 'recurring_charge',
+            amount: chargeParams.amount,
+            count: 1,
+          },
+        ],
+        additional_params: Object.entries(params.metadata ?? {}).map(
+          ([name, value]) => ({ name, value: String(value) }),
+        ),
+      };
+
+      const response =
+        await this._client.post<GoPaySubscriptionResponse>(
+          `/payments/payment/${id}/create-recurrence`,
+          {
+            body: JSON.stringify(body),
+            headers: await this.tokenManager.getAuthHeaders(),
+          },
+        );
+
+      if (!response.ok) {
+        throw new OperationFailedError(
+          'updateSubscription',
+          this.providerName,
+          {
+            cause: new Error(
+              `[PayKit/GoPay] Failed to create on-demand recurrence charge: ${JSON.stringify(response.error ?? response)}`,
+            ),
+          },
+        );
+      }
+
+      // GoPay's create-recurrence response describes the newly created
+      // CHILD payment (its own id), not the parent mandate - re-fetch the
+      // parent so callers get back the subscription they asked to update.
+      const parent = await this.retrieveSubscription(id);
+
+      if (!parent) {
+        throw new OperationFailedError(
+          'updateSubscription',
+          this.providerName,
+          {
+            cause: new Error(
+              'Failed to retrieve subscription after recurrence charge',
+            ),
+          },
+        );
+      }
+
+      return parent;
+    }
+
     const subscription = await this.retrieveSubscription(id);
 
     if (!subscription) {
@@ -607,9 +701,10 @@ export class GoPayProvider
         'updateSubscription',
         this.providerName,
         {
-          reason: "Gopay doesn't support updating subscriptions",
+          reason:
+            "GoPay doesn't support updating subscription fields directly",
           alternative:
-            'Use the payment API instead and update the subscription manually',
+            'Pass provider_metadata.amount to trigger an on-demand recurrence charge instead',
         },
       );
     }

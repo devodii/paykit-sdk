@@ -1,11 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCopy } from '@/hooks/use-copy';
 import { useMounted } from '@/hooks/use-mounted';
-import { cn } from '@paykit-sdk/ui';
-import { Button } from '@paykit-sdk/ui';
-import { ScrollArea } from '@paykit-sdk/ui';
+import { cn } from '@/lib/utils';
 import { Check, Copy } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';

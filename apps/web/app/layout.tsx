@@ -1,6 +1,6 @@
 import '@/app/globals.css';
+import { cn } from '@/lib/utils';
 import { AppProviders } from '@/providers';
-import { cn } from '@paykit-sdk/ui';
 import { Analytics } from '@vercel/analytics/next';
 import type { Metadata } from 'next';
 import {

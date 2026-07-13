@@ -146,7 +146,9 @@ export const Invoice$inboundSchema = (
  *
  * @internal
  */
-export const RefundFromTransaction$inboundSchema = (data: ChapaTransaction): Refund => {
+export const RefundFromTransaction$inboundSchema = (
+  data: ChapaTransaction,
+): Refund => {
   const rawMeta = data.meta ?? {};
   const metadata = omitInternalMetadata(rawMeta);
 
@@ -155,7 +157,10 @@ export const RefundFromTransaction$inboundSchema = (data: ChapaTransaction): Ref
     amount: parseFloat(data.amount),
     currency: data.currency,
     reason: null,
-    metadata: Object.keys(metadata).length > 0 ? (metadata as Record<string, string>) : null,
+    metadata:
+      Object.keys(metadata).length > 0
+        ? (metadata as Record<string, string>)
+        : null,
   };
 };
 

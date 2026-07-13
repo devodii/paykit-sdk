@@ -1,4 +1,5 @@
-import { Button, Card } from '@paykit-sdk/ui';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { AlertCircle, Home, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
