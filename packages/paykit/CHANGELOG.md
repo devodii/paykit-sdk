@@ -1,5 +1,11 @@
 # @paykit-sdk/core
 
+## 1.3.3
+
+### Patch Changes
+
+- c55abd8: feat: added moneygram provider
+
 ## 1.3.2
 
 ### Patch Changes

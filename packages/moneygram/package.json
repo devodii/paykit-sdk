@@ -1,6 +1,6 @@
 {
   "name": "@paykit-sdk/moneygram",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MoneyGram provider for PayKit",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
