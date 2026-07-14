@@ -153,11 +153,6 @@ await webhook.handle({
 });
 ```
 
-MoneyGram signs webhooks with an RSA-SHA256 `Signature` header
-(`t=timestamp, s=signature`) rather than a shared secret. This provider
-re-fetches the full transaction from the Status API before emitting any
-event, since the webhook payload itself only carries status fields.
-
 ## Unsupported operations
 
 `createCustomer`, `createSubscription`, `capturePayment`, `cancelPayment`,

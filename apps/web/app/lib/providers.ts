@@ -26,6 +26,17 @@ export const PROVIDERS: Provider[] = [
     logo: '/providers/stripe.jpeg',
   },
   {
+    id: 'chapa',
+    name: 'Chapa',
+    tagline: 'Payment gateway for Ethiopia',
+    region: 'Ethiopia',
+    packageName: '@paykit-sdk/chapa',
+    initFn: 'chapa',
+    website: 'https://chapa.co',
+    docsUrl: 'https://docs.usepaykit.dev/providers/chapa',
+    logo: 'https://8rcejvvfub.ufs.sh/f/PUZcIXo3ao8IAfnQLNKLFrwdU65KkJi9NqmajuMtEnDOx1cT',
+  },
+  {
     id: 'paypal',
     name: 'PayPal',
     tagline: 'Online payments and checkout',

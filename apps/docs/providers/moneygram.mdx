@@ -165,14 +165,6 @@ await webhook.handle({
 });
 ```
 
-MoneyGram signs webhooks with an RSA-SHA256 `Signature` header
-(`t=timestamp, s=signature`), verified against the public key above.
-
-Since MoneyGram's `TRANSACTION_STATUS_EVENT` payload only carries status
-fields (no amount, sender, or receiver data), this provider re-fetches the
-full transaction from the Status API before emitting any PayKit event —
-never trust the webhook body directly.
-
 MoneyGram transaction statuses and their PayKit event mappings:
 
 | MoneyGram status | PayKit event        |
