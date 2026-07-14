@@ -29,6 +29,7 @@
           "providers/comgate",
           "providers/gopay",
           "providers/mercadopago",
+          "providers/moneygram",
           "providers/monnify",
           "providers/paypal",
           "providers/paystack",

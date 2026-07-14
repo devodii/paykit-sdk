@@ -102,6 +102,17 @@ export const PROVIDERS: Provider[] = [
     docsUrl: 'https://docs.usepaykit.dev/providers/redsys',
     logo: null,
   },
+  {
+    id: 'moneygram',
+    name: 'MoneyGram',
+    tagline: 'Global money transfer and remittance',
+    region: 'Global',
+    packageName: '@paykit-sdk/moneygram',
+    initFn: 'moneygram',
+    website: 'https://moneygram.com',
+    docsUrl: 'https://docs.usepaykit.dev/providers/moneygram',
+    logo: null,
+  },
 ];
 
 export function getProvider(id: string): Provider | undefined {

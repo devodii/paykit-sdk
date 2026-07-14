@@ -18,9 +18,18 @@ export interface OAuth2TokenManagerConfig {
   provider: string;
 
   /**
-   * Token endpoint path (e.g., '/oauth2/token')
+   * Token endpoint path (e.g., '/oauth2/token'). Include any required
+   * query string directly (e.g. '/oauth/accesstoken?grant_type=client_credentials').
    */
   tokenEndpoint: string;
+
+  /**
+   * HTTP method the token endpoint expects. Defaults to 'POST' (the
+   * common case: client_id/secret or grant_type in a form/JSON body).
+   * Use 'GET' for providers that pass `grant_type` as a query param
+   * instead (e.g. MoneyGram) - `requestBody` is ignored in that case.
+   */
+  method?: 'GET' | 'POST';
 
   /**
    * Credentials for Basic auth (username:password format)
@@ -76,6 +85,7 @@ export class OAuth2TokenManager {
   constructor(config: OAuth2TokenManagerConfig) {
     this.config = {
       ...config,
+      method: config.method ?? 'POST',
       expiryBuffer: config.expiryBuffer ?? 300,
     };
   }
@@ -111,15 +121,19 @@ export class OAuth2TokenManager {
       }),
     };
 
-    const response = await this.config.client.post(
-      this.config.tokenEndpoint,
-      {
-        headers,
-        ...(this.config.requestBody && {
-          body: this.config.requestBody,
-        }),
-      },
-    );
+    // GET-based token endpoints (e.g. MoneyGram) pass everything via query
+    // string on tokenEndpoint - a request body wouldn't be sent/read anyway.
+    const response =
+      this.config.method === 'GET'
+        ? await this.config.client.get(this.config.tokenEndpoint, {
+            headers,
+          })
+        : await this.config.client.post(this.config.tokenEndpoint, {
+            headers,
+            ...(this.config.requestBody && {
+              body: this.config.requestBody,
+            }),
+          });
 
     if (!response.ok) {
       throw new OperationFailedError(
