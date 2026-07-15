@@ -28,8 +28,7 @@ African internet businesses selling globally
     BACHS_SANDBOX=true
     ```
 
-    The API key's prefix (`sk_sandbox_` / `sk_live_`) is what Bachs
-    uses to route your requests
+    The key's prefix decides sandbox vs live, and overrides `isSandbox` if the two disagree.
 
   </Tab>
   <Tab title="Direct config">
@@ -50,7 +49,7 @@ African internet businesses selling globally
 
 ## Creating a checkout
 
-Products (and their prices) live in your Bachs product catalog —
+Products (and their prices) live in your Bachs product catalog.
 `item_id` is a Bachs `product_id`. Bachs resolves the amount/currency
 from the product itself, so you don't pass either:
 
@@ -68,16 +67,15 @@ const checkout = await paykit.checkouts.create({
 // Redirect the customer to checkout.payment_url
 ```
 
-Recurring products work identically — if `prod_abc123` has a
-`billing_cycle` configured on Bachs, completing this same checkout
-creates a subscription automatically; you'll get both a
-`payment.succeeded` and a `subscription.created` webhook.
+If `prod_abc123` has a `billing_cycle` configured on Bachs, completing
+this same checkout creates a subscription automatically. You'll get
+both a `payment.succeeded` and a `subscription.created` webhook.
 
 ## Creating a payment directly
 
 Same underlying flow, mapped onto `Payment`. Needs `success_url` in
 `provider_metadata` since Bachs still redirects the customer even for
-a "direct" payment:
+a direct payment:
 
 ```typescript
 const payment = await paykit.payments.create({
@@ -85,7 +83,7 @@ const payment = await paykit.payments.create({
   amount: 50, // informational only - Bachs resolves the real amount from the product
   currency: 'USD',
   item_id: 'prod_abc123',
-  capture_method: 'automatic', // Bachs captures automatically - no manual step
+  capture_method: 'automatic', // Bachs captures automatically, no manual step
   provider_metadata: {
     success_url: 'https://shop.example.com/thanks',
     cancel_url: 'https://shop.example.com/cart', // optional
@@ -94,22 +92,29 @@ const payment = await paykit.payments.create({
 ```
 
 `payment.id` (and `checkout.id`) is Bachs' `checkout_id` for the
-lifetime of the payment — a real `charge_id`/`payment_id` only exists
-once the customer completes payment, nested under the checkout session
-as `.charge`. `retrievePayment`/`retrieveCheckout` handle that
-automatically; `createRefund` resolves the real charge_id internally.
+lifetime of the payment. Keep using this same `checkout_id` for
+`paykit.payments.retrieve` and `paykit.refunds.create`.
 
-Before the customer pays, retrieving a payment reflects the checkout's
-own status (`pending`, `requires_action: true`). Once they pay, it
-reflects the nested charge (`succeeded`, `failed`, etc). Neither
-`retrieveCheckout` nor `retrievePayment` ever see the checkout URL
-again after creation — Bachs only returns it once — so
-`checkout.payment_url` is `''` and `payment.payment_url` is `null` on
-retrieval.
+## Safe retries
+
+`paykit.checkouts.create` and `paykit.payments.create` each make two
+calls under the hood: create the session, then fetch it back to
+resolve pricing. If your own code might retry the whole call, pass a
+stable `idempotencyKey` (your own order ID works well) so a retry
+returns the original session instead of creating a duplicate:
+
+```typescript
+await paykit.checkouts.create({
+  // ...
+  provider_metadata: { idempotencyKey: `order-${order.id}` },
+});
+```
+
+`paykit.refunds.create` supports the same option.
 
 ## Customers
 
-Full support except delete (no endpoint exists):
+Full support except delete, Bachs has no endpoint for it:
 
 ```typescript
 const customer = await paykit.customers.create({
@@ -123,9 +128,9 @@ await paykit.customers.update(customer.id, { name: 'Jane D.' });
 
 ## Subscriptions
 
-No `createSubscription` — create one via `createCheckout` with a
-recurring-configured product instead. Retrieve, update, and cancel
-work directly:
+Bachs has no direct way to create a subscription. Create one by
+calling `paykit.checkouts.create` with a recurring-configured
+product instead. Retrieve, update, and cancel work directly:
 
 ```typescript
 const subscription =
@@ -139,11 +144,6 @@ await paykit.subscriptions.update('sub_1a2b3c4d5e', {
 await paykit.subscriptions.cancel('sub_1a2b3c4d5e'); // cancels immediately
 ```
 
-`cancelSubscription` always cancels immediately
-(`cancel_at_period_end: false`) since PayKit's interface doesn't pass
-params through to it — use `updateSubscription`'s `provider_metadata`
-first if you need different behavior.
-
 ## Refunds
 
 ```typescript
@@ -155,36 +155,24 @@ await paykit.refunds.create({
 });
 ```
 
-Requires the payment to have actually succeeded (a `charge` must exist
-under the checkout session) — throws `ResourceNotFoundError`
-otherwise.
+The payment must have actually succeeded. Refunding a checkout that
+hasn't been paid throws `ResourceNotFoundError`.
 
 ## Webhooks
 
-Configure an endpoint from your Bachs Developer Portal or via the
-Webhook Endpoint API — either way you get an `X-Bachs-Signature`
-header (HMAC-SHA256 of `"{timestamp}.{raw_body}"`) plus
-`X-Bachs-Timestamp`, verified against your endpoint's signing secret.
-Deliveries older than 5 minutes are rejected:
+Add a webhook endpoint from your Bachs Developer Portal and pass its
+signing secret to `webhookSecret`:
 
 ```typescript
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.BACHS_WEBHOOK_SECRET! }) // whsec_...
-  .on('payment.succeeded', async event => {
-    /* collection.succeeded, re-fetched */
-  })
-  .on('payment.failed', async event => {
-    /* collection.failed / collection.abandoned */
-  })
-  .on('payment.updated', async event => {
-    /* collection.underpaid */
-  })
+  .on('payment.succeeded', async event => {})
+  .on('payment.failed', async event => {})
+  .on('payment.updated', async event => {})
   .on('subscription.created', async event => {})
   .on('subscription.updated', async event => {})
   .on('subscription.canceled', async event => {})
-  .on('refund.created', async event => {
-    /* refund.created / refund.paid / refund.failed */
-  })
+  .on('refund.created', async event => {})
   .on('customer.created', async event => {})
   .on('customer.updated', async event => {});
 
@@ -195,9 +183,9 @@ await webhook.handle({
 });
 ```
 
-`payout.*`, `invoice.*`, `dispute.*`, and `conversion.*` events aren't
-mapped to a standard PayKit event — they're outside PayKit's current
-interface. Opt into them as raw events:
+### Raw Bachs events
+
+Opt into any native Bachs event type, typed against Bachs' payload:
 
 ```typescript
 paykit.webhooks
@@ -207,11 +195,23 @@ paykit.webhooks
   });
 ```
 
-## Unsupported operations
+All available raw events and their PayKit mappings:
 
-`updateCheckout`, `deleteCheckout`, `deleteCustomer`,
-`createSubscription`, `deleteSubscription`, `updatePayment`,
-`deletePayment`, `capturePayment`, and `cancelPayment` throw
-`ProviderNotSupportedError` — Bachs has no endpoints for amending or
-deleting a checkout session, deleting a customer, creating a
-subscription directly, or manually capturing/canceling a payment.
+| Raw event                             | PayKit event            |
+| ------------------------------------- | ----------------------- |
+| `bachs.collection.succeeded`          | `payment.succeeded`     |
+| `bachs.collection.failed`             | `payment.failed`        |
+| `bachs.collection.abandoned`          | `payment.failed`        |
+| `bachs.collection.underpaid`          | `payment.updated`       |
+| `bachs.refund.created`                | `refund.created`        |
+| `bachs.refund.paid`                   | `refund.created`        |
+| `bachs.refund.failed`                 | `refund.created`        |
+| `bachs.customer.subscription.created` | `subscription.created`  |
+| `bachs.customer.subscription.updated` | `subscription.updated`  |
+| `bachs.customer.subscription.deleted` | `subscription.canceled` |
+| `bachs.customer.created`              | `customer.created`      |
+| `bachs.customer.updated`              | `customer.updated`      |
+| `bachs.payout.*`                      | _(raw only)_            |
+| `bachs.invoice.*`                     | _(raw only)_            |
+| `bachs.dispute.*`                     | _(raw only)_            |
+| `bachs.conversion.*`                  | _(raw only)_            |

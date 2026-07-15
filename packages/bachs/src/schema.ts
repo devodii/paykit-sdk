@@ -296,13 +296,6 @@ export interface BachsErrorResponse {
   errors?: Array<{ field: string; message: string; type: string }>;
 }
 
-/**
- * The envelope for every webhook delivery, per Bachs' "Setting Up
- * Webhooks" guide. `data` shape varies per `type` and is generally a
- * partial snapshot (e.g. collection.succeeded's data only has
- * charge_id/checkout_id/status/amount/currency) - retrieve the full
- * resource for anything beyond that.
- */
 export interface BachsWebhookEnvelope<T = Record<string, unknown>> {
   id: string;
   type: string;
