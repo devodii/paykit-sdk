@@ -36,6 +36,7 @@
           "providers/polar",
           "providers/razorpay",
           "providers/redsys",
+          "providers/remita",
           "providers/stripe",
           "providers/xendit"
         ]

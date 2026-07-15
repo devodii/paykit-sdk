@@ -157,6 +157,17 @@ export const PROVIDERS: Provider[] = [
     docsUrl: 'https://docs.usepaykit.dev/providers/moneygram',
     logo: null,
   },
+  {
+    id: 'remita',
+    name: 'Remita',
+    tagline: 'Payment collections for Nigeria',
+    region: 'Nigeria',
+    packageName: '@paykit-sdk/remita',
+    initFn: 'remita',
+    website: 'https://remita.net',
+    docsUrl: 'https://docs.usepaykit.dev/providers/remita',
+    logo: null,
+  },
 ];
 
 export function getProvider(id: string): Provider | undefined {
