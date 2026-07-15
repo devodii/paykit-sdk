@@ -1,6 +1,6 @@
 {
   "name": "@paykit-sdk/remita",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Remita provider for PayKit",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -12,7 +12,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "paykit": {
     "type": "provider"
   },
