@@ -25,6 +25,7 @@
       {
         "group": "Providers",
         "pages": [
+          "providers/bachs",
           "providers/chapa",
           "providers/comgate",
           "providers/gopay",

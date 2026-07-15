@@ -15,6 +15,17 @@ export interface Provider {
 // partner docs.
 export const PROVIDERS: Provider[] = [
   {
+    id: 'bachs',
+    name: 'Bachs',
+    tagline: 'Payments and billing for African businesses',
+    region: 'Africa',
+    packageName: '@paykit-sdk/bachs',
+    initFn: 'bachs',
+    website: 'https://bachs.io',
+    docsUrl: 'https://docs.usepaykit.dev/providers/bachs',
+    logo: null,
+  },
+  {
     id: 'stripe',
     name: 'Stripe',
     tagline: 'Global payment processing',

@@ -1,0 +1,45 @@
+{
+  "name": "@paykit-sdk/bachs",
+  "version": "1.0.0",
+  "description": "Bachs provider for PayKit",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "paykit": {
+    "type": "provider"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run --config ../../vitest.config.ts packages/bachs/src",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "author": "Emmanuel Odii",
+  "peerDependencies": {
+    "@paykit-sdk/core": "^1.2.3"
+  },
+  "devDependencies": {
+    "@paykit-sdk/core": "workspace:*",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/usepaykit/paykit-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/usepaykit/paykit-sdk/issues"
+  }
+}
