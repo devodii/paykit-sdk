@@ -124,13 +124,21 @@ export interface PaystackCustomer {
    */
   international_format_phone?: string | null;
   /**
-   * The created at timestamp of the customer
+   * The created at timestamp of the customer (snake_case on GET responses)
    */
-  created_at: string;
+  created_at?: string;
   /**
-   * The updated at timestamp of the customer
+   * The updated at timestamp of the customer (snake_case on GET responses)
    */
-  updated_at: string;
+  updated_at?: string;
+  /**
+   * The created at timestamp (camelCase on POST/PUT responses)
+   */
+  createdAt?: string;
+  /**
+   * The updated at timestamp (camelCase on POST/PUT responses)
+   */
+  updatedAt?: string;
 }
 
 export interface PaystackTransaction {
@@ -383,9 +391,10 @@ export interface PaystackSubscription {
    */
   amount: number;
   /**
-   * The currency of the subscription e.g `NGN`
+   * The currency of the subscription e.g `NGN`.
+   * Not always returned at the subscription level — fall back to plan.currency.
    */
-  currency: string;
+  currency?: string;
   /**
    * The quantity of the subscription
    */
