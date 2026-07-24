@@ -48,6 +48,7 @@ const checkout = await paykit.checkouts.create({
   quantity: 1,
   success_url: 'https://example.com/success',
   cancel_url: 'https://example.com/cancel',
+  metadata: null,
   provider_metadata: {
     amount: 500000, // in kobo (NGN) or smallest currency unit
     currency: 'NGN',
@@ -170,12 +171,13 @@ await paykit.checkouts.create({
   },
 });
 
-// refund.provider_metadata is typed as { merchant_note: string; customer_note: string }
+// refund.provider_metadata is typed as { merchant_note?: string; customer_note?: string }
 await paykit.refunds.create({
   payment_id: 'ref_abc123',
   amount: 5000,
+  reason: 'Duplicate charge',
+  metadata: null,
   provider_metadata: {
-    merchant_note: 'Duplicate charge',
     customer_note: 'Sorry for the inconvenience',
   },
 });

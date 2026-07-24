@@ -63,8 +63,8 @@ import {
 
 interface PaystackMetadata extends ProviderMetadataRegistry {
   refund: {
-    merchant_note: string;
-    customer_note: string;
+    merchant_note?: string;
+    customer_note?: string;
   };
   checkout?: {
     amount?: number;
