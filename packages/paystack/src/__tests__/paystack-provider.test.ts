@@ -737,7 +737,7 @@ describe('PaystackProvider — missing coverage', () => {
   // POST /refund — shape based on PaystackRefund interface
   // (real curl returned "Cannot refund less than NGN50" due to amount constraint,
   //  not a schema issue — existing webhook refund.processed test confirms field names)
-  const refundApiResponse = (currency = 'NGN') =>
+  const refundApiResponse = (currency = 'NGN', merchantNote = 'Test refund from paykit-sdk audit') =>
     jsonResponse({
       status: true,
       message: 'Refund created successfully',
@@ -752,7 +752,7 @@ describe('PaystackProvider — missing coverage', () => {
         refunded_at: null,
         expected_at: '2026-08-07T00:00:00.000Z',
         customer_note: '',
-        merchant_note: 'Test refund from paykit-sdk audit',
+        merchant_note: merchantNote,
         created_at: '2026-07-24T08:00:00.000Z',
         updated_at: '2026-07-24T08:00:00.000Z',
         status: 'pending',
@@ -1153,6 +1153,54 @@ describe('PaystackProvider — missing coverage', () => {
 
       // Before the fix, 'NGN' was hardcoded — this would have been 'NGN' for a GHS refund.
       expect(result.currency).toBe('GHS');
+    });
+
+    it('createRefund falls back to "Duplicate charge" if no reason or merchant_note is provided', async () => {
+      fetchMock.mockResolvedValueOnce(refundApiResponse());
+
+      await makeProvider().createRefund({
+        payment_id: 'txn_test',
+        amount: 5000,
+        reason: '',
+        metadata: null,
+      } as never);
+
+      const [url, options] = fetchMock.mock.calls[0];
+      const body = JSON.parse((options as { body: string }).body);
+      expect(body.merchant_note).toBe('Duplicate charge');
+    });
+
+    it('createRefund prioritizes provider_metadata.merchant_note over reason', async () => {
+      fetchMock.mockResolvedValueOnce(refundApiResponse());
+
+      await makeProvider().createRefund({
+        payment_id: 'txn_test',
+        reason: 'Universal SDK Reason',
+        amount: 5000,
+        metadata: null,
+        provider_metadata: {
+          merchant_note: 'Provider Metadata Reason',
+          other_field: 'keep me'
+        }
+      } as never);
+
+      const [url, options] = fetchMock.mock.calls[0];
+      const body = JSON.parse((options as { body: string }).body);
+      expect(body.merchant_note).toBe('Provider Metadata Reason');
+      expect(body.other_field).toBe('keep me');
+    });
+
+    it('createRefund uses the reason from merchant_note (Bug 4 regression)', async () => {
+      fetchMock.mockResolvedValueOnce(refundApiResponse('NGN', 'Bad stuff'));
+
+      const result = await makeProvider().createRefund({
+        payment_id: 'txn_test',
+        reason: 'GHS refund test',
+        amount: 5000,
+        metadata: null,
+      } as never);
+
+      expect(result.reason).toBe('Bad stuff');
     });
 
     it('createRefund returns the reason from merchant_note (Bug 4 regression)', async () => {

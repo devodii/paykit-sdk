@@ -683,11 +683,18 @@ export class PaystackProvider
       );
     }
 
+    const providerMetadata = (data.provider_metadata as Record<string, unknown>) || {};
+    const merchantNote =
+      providerMetadata.merchant_note || data.reason || 'Duplicate charge';
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { merchant_note, ...restMetadata } = providerMetadata;
+
     const body: Record<string, unknown> = {
       transaction: data.payment_id,
       ...(data.amount && { amount: data.amount }),
-      ...(data.reason && { merchant_note: data.reason }),
-      ...(data.provider_metadata && { ...data.provider_metadata }),
+      merchant_note: merchantNote,
+      ...restMetadata,
     };
 
     const response = await this._client.post<

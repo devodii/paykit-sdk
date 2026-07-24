@@ -172,10 +172,12 @@ await paykit.checkouts.create({
 });
 
 // refund.provider_metadata is typed as { merchant_note?: string; customer_note?: string }
+// Paystack requires a merchant_note. The SDK will prioritize provider_metadata.merchant_note,
+// fall back to the universal `reason` field, or default to "Duplicate charge".
 await paykit.refunds.create({
   payment_id: 'ref_abc123',
   amount: 5000,
-  reason: 'Duplicate charge',
+  reason: 'Customer requested cancellation',
   metadata: null,
   provider_metadata: {
     customer_note: 'Sorry for the inconvenience',
