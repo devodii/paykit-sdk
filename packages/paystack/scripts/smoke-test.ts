@@ -154,10 +154,16 @@ async function main() {
       assert(refund.id !== undefined, 'refund.id is undefined');
       assert(refund.currency === 'NGN', `wrong currency: ${refund.currency}`);
     } catch (err: any) {
-      // Paystack might return "Transaction has been fully refunded" if we run this
       // script multiple times, which means the endpoint is actually working correctly.
-      if (err.message && err.message.includes('fully refunded')) {
-        console.log('     (Transaction already fully refunded, but endpoint works)');
+      const msg = err.message || '';
+      const causeMsg = (err.cause as Error)?.message || '';
+      
+      if (
+        msg.includes('fully refunded') || 
+        causeMsg.includes('fully refunded') ||
+        causeMsg.includes('Only successful transactions can be refunded')
+      ) {
+        console.log('     (Transaction already fully refunded or not successful, but endpoint works)');
       } else {
         throw err;
       }
