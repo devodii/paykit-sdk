@@ -160,6 +160,37 @@ export class PaystackProvider
     return this._toCamel(result.value.data) as T;
   }
 
+  /**
+   * Like unwrap() but does NOT apply _toCamel — use this when the result will
+   * be handed directly to a provider-specific mapper (Customer$inboundSchema,
+   * Subscription$inboundSchema, Refund$inboundSchema, etc.) that reads raw
+   * snake_case field names from the Paystack API response.
+   *
+   * unwrap() is only correct for initializeTransaction, where Paystack returns
+   * snake_case (authorization_url) but PaystackInitializeResponse expects
+   * camelCase (authorizationUrl).
+   */
+  private _throwIfFailed<T>(
+    result: {
+      ok: boolean;
+      value?: PaystackResponse<T>;
+      error?: unknown;
+    },
+    operation: string,
+  ): T {
+    if (!result.ok || !result.value?.status) {
+      throw new OperationFailedError(operation, this.providerName, {
+        cause: new Error(
+          result.value?.message ??
+            JSON.stringify(result.error) ??
+            'Unknown error',
+        ),
+      });
+    }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return result.value!.data;
+  }
+
   private async initializeTransaction(params: {
     email: string;
     amount: number;
@@ -325,9 +356,11 @@ export class PaystackProvider
       PaystackResponse<PaystackCustomer>
     >('/customer', { body: JSON.stringify(body) });
 
-    const customer = await this.unwrap(response, 'createCustomer');
-
-    return Customer$inboundSchema(customer);
+    // Do NOT use unwrap() here — it applies _toCamel which renames customer_code
+    // to customerCode, first_name to firstName, etc., breaking Customer$inboundSchema.
+    return Customer$inboundSchema(
+      this._throwIfFailed(response, 'createCustomer'),
+    );
   };
 
   retrieveCustomer = async (id: string): Promise<Customer | null> => {
@@ -368,9 +401,10 @@ export class PaystackProvider
       body: JSON.stringify(body),
     });
 
-    const customer = await this.unwrap(response, 'updateCustomer');
-
-    return Customer$inboundSchema(customer);
+    // Do NOT use unwrap() here — same _toCamel issue as createCustomer.
+    return Customer$inboundSchema(
+      this._throwIfFailed(response, 'updateCustomer'),
+    );
   };
 
   deleteCustomer = async (_id: string): Promise<null> => {
@@ -415,12 +449,12 @@ export class PaystackProvider
       PaystackResponse<PaystackSubscription>
     >('/subscription', { body: JSON.stringify(body) });
 
-    const subscription = await this.unwrap(
-      response,
-      'createSubscription',
+    // Do NOT use unwrap() here — _toCamel converts subscription_code →
+    // subscriptionCode and next_payment_date → nextPaymentDate, breaking
+    // Subscription$inboundSchema which reads the snake_case field names.
+    return Subscription$inboundSchema(
+      this._throwIfFailed(response, 'createSubscription'),
     );
-
-    return Subscription$inboundSchema(subscription);
   };
 
   retrieveSubscription = async (
@@ -468,7 +502,16 @@ export class PaystackProvider
       PaystackResponse<PaystackSubscription>
     >(`/subscription/${encodeURIComponent(id)}`);
 
-    const rawSub = await this.unwrap(
+    // Paystack's POST /subscription/disable requires both `code`
+    // (subscription_code) AND `token` (email_token) from the raw API response.
+    // retrieveSubscription() above maps data through Subscription$inboundSchema
+    // which drops email_token entirely, so we must re-fetch the raw response
+    // here to obtain it. This second GET is intentional — not a bug.
+    //
+    // We use _throwIfFailed (not unwrap) so _toCamel does not rename
+    // subscription_code → subscriptionCode and email_token → emailToken,
+    // which would silently send { code: undefined, token: undefined } to Paystack.
+    const rawSub = this._throwIfFailed(
       subResponse,
       'cancelSubscription',
     );
@@ -478,10 +521,13 @@ export class PaystackProvider
       token: rawSub.email_token,
     };
 
-    await this._client.post<PaystackResponse<boolean>>(
-      '/subscription/disable',
-      { body: JSON.stringify(body) },
-    );
+    const disableResponse = await this._client.post<
+      PaystackResponse<{ status: string }>
+    >('/subscription/disable', { body: JSON.stringify(body) });
+
+    // Guard the disable response — if Paystack rejects (wrong token, already
+    // inactive, etc.), throw rather than silently returning a stale 'canceled'.
+    this._throwIfFailed(disableResponse, 'cancelSubscription');
 
     return { ...existing, status: 'canceled' };
   };
@@ -648,9 +694,13 @@ export class PaystackProvider
       PaystackResponse<PaystackRefund>
     >('/refund', { body: JSON.stringify(body) });
 
-    const refund = await this.unwrap(response, 'createRefund');
+    // Do NOT use unwrap() here — _toCamel converts customer_note →
+    // customerNote and merchant_note → merchantNote, making reason always null.
+    const refund = this._throwIfFailed(response, 'createRefund');
 
-    return Refund$inboundSchema(refund, 'NGN');
+    // refund.currency is returned by Paystack; 'NGN' is a last-resort fallback
+    // for rare cases where the currency field is absent in the response.
+    return Refund$inboundSchema(refund, refund.currency || 'NGN');
   };
 
   handleWebhook = async (

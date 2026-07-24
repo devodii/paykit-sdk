@@ -35,14 +35,20 @@ export const Customer$inboundSchema = (
     email: data.email,
   });
 
+  // Paystack's GET /customer returns both created_at and createdAt.
+  // POST /customer and PUT /customer return only createdAt (camelCase).
+  // Read whichever is present.
+  const createdAt = data.created_at ?? data.createdAt;
+  const updatedAt = data.updated_at ?? data.updatedAt;
+
   return {
     id: data.customer_code,
     email: data.email,
     name: fullName,
     phone: data.phone ?? null,
     metadata: (data.metadata as Record<string, string>) ?? undefined,
-    created_at: new Date(data.created_at),
-    updated_at: data.updated_at ? new Date(data.updated_at) : null,
+    created_at: new Date(createdAt ?? Date.now()),
+    updated_at: updatedAt ? new Date(updatedAt) : null,
   };
 };
 
