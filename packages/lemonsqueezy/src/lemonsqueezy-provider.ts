@@ -15,6 +15,7 @@ import {
   PaykitProviderOptions,
   Payment,
   ProviderMetadataRegistry,
+  ProviderNotSupportedError,
   Refund,
   Subscription,
   UpdateCheckoutSchema,
@@ -23,6 +24,8 @@ import {
   UpdateSubscriptionSchema,
   WebhookEventPayload,
   WebhookHandlerConfig,
+  parseCustomerName,
+  paykitEvent$InboundSchema,
 } from '@paykit-sdk/core';
 import { z } from 'zod';
 import * as crypto from 'crypto';
@@ -136,7 +139,9 @@ export class LemonSqueezyProvider
   }
 
   async deleteCheckout(id: string): Promise<null> {
-    throw new Error('deleteCheckout not natively supported by LemonSqueezy API');
+    throw new ProviderNotSupportedError('deleteCheckout', this.providerName, {
+      reason: 'deleteCheckout not natively supported by LemonSqueezy API',
+    });
   }
 
   // --- Customer ---
@@ -148,7 +153,7 @@ export class LemonSqueezyProvider
       data: {
         type: 'customers',
         attributes: {
-          name: params.name || params.email.split('@')[0],
+          name: parseCustomerName(params).fullName,
           email: params.email,
         },
         relationships: {
@@ -196,7 +201,9 @@ export class LemonSqueezyProvider
   }
 
   async deleteCustomer(id: string): Promise<null> {
-    throw new Error('deleteCustomer not natively supported by LemonSqueezy API');
+    throw new ProviderNotSupportedError('deleteCustomer', this.providerName, {
+      reason: 'deleteCustomer not natively supported by LemonSqueezy API',
+    });
   }
 
   // --- Subscription ---
@@ -205,7 +212,9 @@ export class LemonSqueezyProvider
     params: CreateSubscriptionSchema<ProviderMetadataRegistry['subscription']>,
   ): Promise<Subscription> {
     // Usually created via Checkout in LemonSqueezy
-    throw new Error('createSubscription is generally handled via Checkout in LemonSqueezy');
+    throw new ProviderNotSupportedError('createSubscription', this.providerName, {
+      reason: 'createSubscription is generally handled via Checkout in LemonSqueezy',
+    });
   }
 
   async retrieveSubscription(id: string): Promise<Subscription | null> {
@@ -255,7 +264,9 @@ export class LemonSqueezyProvider
   async createPayment(
     params: CreatePaymentSchema<ProviderMetadataRegistry['payment']>,
   ): Promise<Payment> {
-    throw new Error('createPayment directly is not supported. Use createCheckout for LemonSqueezy');
+    throw new ProviderNotSupportedError('createPayment', this.providerName, {
+      reason: 'createPayment directly is not supported. Use createCheckout for LemonSqueezy',
+    });
   }
 
   async retrievePayment(id: string): Promise<Payment | null> {
@@ -267,19 +278,19 @@ export class LemonSqueezyProvider
   }
 
   async updatePayment(id: string, params: UpdatePaymentSchema): Promise<Payment> {
-    throw new Error('updatePayment not supported');
+    throw new ProviderNotSupportedError('updatePayment', this.providerName);
   }
 
   async deletePayment(id: string): Promise<null> {
-    throw new Error('deletePayment not supported');
+    throw new ProviderNotSupportedError('deletePayment', this.providerName);
   }
 
   async capturePayment(id: string, params: CapturePaymentSchema): Promise<Payment> {
-    throw new Error('capturePayment not supported');
+    throw new ProviderNotSupportedError('capturePayment', this.providerName);
   }
 
   async cancelPayment(id: string): Promise<Payment> {
-    throw new Error('cancelPayment not supported');
+    throw new ProviderNotSupportedError('cancelPayment', this.providerName);
   }
 
   // --- Refund ---
@@ -339,13 +350,58 @@ export class LemonSqueezyProvider
 
     const event = JSON.parse(payload.body) as LemonSqueezyWebhookEvent;
 
-    return [
-      {
-        id: event.data.id,
-        type: event.meta.event_name,
-        created: Date.now(),
-        data: event.data,
-      },
-    ];
+    const results: Array<WebhookEventPayload<any>> = [];
+
+    results.push({
+      id: `lemonsqueezy:${event.meta.event_name}:${crypto.randomUUID()}`,
+      type: `lemonsqueezy.${event.meta.event_name}`,
+      created: Math.floor(Date.now() / 1000),
+      data: event.data,
+      is_raw: true,
+    } as any);
+
+    const standardEvents = this.mapToStandardEvents(event);
+    if (standardEvents) results.push(...standardEvents);
+
+    return results;
+  }
+
+  private mapToStandardEvents(
+    event: LemonSqueezyWebhookEvent,
+  ): Array<WebhookEventPayload> | null {
+    const created = Math.floor(Date.now() / 1000);
+    const id = `paykit:${event.meta.event_name}:${crypto.randomUUID()}`;
+
+    switch (event.meta.event_name) {
+      case 'order_created': {
+        const order = Payment$inboundSchema(event.data as any);
+        return [
+          paykitEvent$InboundSchema({
+            type: 'payment.updated',
+            created,
+            id,
+            data: order,
+          }),
+        ];
+      }
+      case 'subscription_created':
+      case 'subscription_updated':
+      case 'subscription_cancelled': {
+        const sub = Subscription$inboundSchema(event.data as any);
+        const action = event.meta.event_name.split('_')[1];
+        const paykitType = `subscription.${action === 'cancelled' ? 'canceled' : action}` as const;
+
+        return [
+          paykitEvent$InboundSchema({
+            type: paykitType as any,
+            created,
+            id,
+            data: sub,
+          }),
+        ];
+      }
+      default:
+        return null;
+    }
   }
 }
