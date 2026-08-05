@@ -89,10 +89,14 @@ describe('LemonSqueezyProvider', () => {
         secret,
       );
 
-      expect(events).toHaveLength(1);
-      expect(events[0].type).toBe('order_created');
-      expect(events[0].id).toBe('order_123');
+      expect(events).toHaveLength(2);
+      expect(events[0].type).toBe('lemonsqueezy.order_created');
+      expect(events[0].id).toMatch(/^lemonsqueezy:order_created:/);
       expect(events[0].data.attributes.total).toBe(1000);
+
+      expect(events[1].type).toBe('payment.updated');
+      expect(events[1].data.amount).toBe(1000);
+      expect(events[1].id).toMatch(/^paykit:order_created:/);
     });
 
     it('should throw ConfigurationError if no webhook secret is provided', async () => {
