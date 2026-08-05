@@ -32,11 +32,11 @@ jobs:
       - name: Run Tests
         run: pnpm test
 
-      - name: Typecheck
-        run: |
-          for pkg in paykit stripe paypal polar paystack monnify gopay comgate redsys; do
-            pnpm --filter "./packages/$pkg" typecheck
-          done
-
       - name: Build Packages
         run: pnpm build:packages
+
+      - name: Typecheck
+        run: |
+          for pkg in paykit stripe paypal polar paystack monnify gopay comgate redsys lemonsqueezy; do
+            pnpm --filter "./packages/$pkg" typecheck
+          done
