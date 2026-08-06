@@ -1,0 +1,143 @@
+---
+title: LemonSqueezy
+description: LemonSqueezy provider for PayKit.
+---
+
+```bash
+npm install @paykit-sdk/lemonsqueezy
+```
+
+## Setup
+
+<Tabs>
+  <Tab title="Environment variables">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { lemonsqueezy } from '@paykit-sdk/lemonsqueezy';
+
+    export const paykit = new PayKit(lemonsqueezy());
+    ```
+
+    Required env vars:
+    ```bash
+    LEMONSQUEEZY_API_KEY=...
+    LEMONSQUEEZY_WEBHOOK_SECRET=your-webhook-secret
+    ```
+
+  </Tab>
+  <Tab title="Direct config">
+    ```typescript
+    import { PayKit } from '@paykit-sdk/core';
+    import { createLemonSqueezy } from '@paykit-sdk/lemonsqueezy';
+
+    export const paykit = new PayKit(
+      createLemonSqueezy({ apiKey: '...', isSandbox: true }),
+    );
+    ```
+
+  </Tab>
+</Tabs>
+
+## Supported Endpoints
+
+LemonSqueezy’s API strictly follows JSON:API standards. Certain resources like stores, products, and standard checkouts are largely managed via their hosted dashboard. 
+
+The PayKit provider implements the following operational endpoints:
+- `customers.create`
+- `customers.retrieve`
+- `customers.update`
+- `checkouts.create`
+- `checkouts.retrieve`
+- `payments.retrieve` (maps to LemonSqueezy `orders`)
+- `refunds.create` (maps to LemonSqueezy `order refunds`)
+- `subscriptions.retrieve`
+- `subscriptions.update`
+- `subscriptions.cancel`
+
+*Note: Operations like `checkouts.update` and `subscriptions.create` are not natively supported by the LemonSqueezy API and will intentionally throw an "Unsupported" error.*
+
+## How it works
+
+To create a checkout session for LemonSqueezy, you must provide your LemonSqueezy `store_id` and the `variant_id` representing the product you are selling. 
+
+```typescript
+const checkout = await paykit.checkouts.create({
+  customer: { email: 'user@example.com' },
+  session_type: 'one_time',
+  quantity: 1,
+  success_url: 'https://example.com/success',
+  cancel_url: 'https://example.com/cancel',
+  provider_metadata: {
+    store_id: 12345, // Required: Your LemonSqueezy Store ID
+    variant_id: 98765, // Required: The Product Variant ID
+    custom_price: 500000, // Optional: override price
+  },
+});
+
+// Redirect the customer to the checkout url returned from the API
+
+// Once they're back, confirm the checkout state
+const retrievedCheckout = await paykit.checkouts.retrieve(checkout.id);
+```
+
+## Webhooks
+
+LemonSqueezy signs webhooks with HMAC-SHA256 via the `x-signature` header.
+
+```typescript
+const webhook = paykit.webhooks
+  .setup({ webhookSecret: process.env.LEMONSQUEEZY_WEBHOOK_SECRET! })
+  .on('order_created', async event => {
+    // Fired when a payment completes successfully
+  })
+  .on('subscription_created', async event => {
+    // Fired for new subscriptions
+  })
+  .on('subscription_updated', async event => {
+    // Fired when a subscription renews or is changed
+  });
+
+await webhook.handle({
+  body: rawBody,
+  headersAsObject: Object.fromEntries(request.headers),
+  fullUrl: request.url,
+});
+```
+
+### Raw LemonSqueezy events
+
+All webhook events fired by the LemonSqueezy provider emit the raw `event_name` provided by LemonSqueezy (e.g. `order_created`, `subscription_created`, `subscription_cancelled`). You can listen to any native LemonSqueezy event.
+
+| Event                               | Data type                      |
+| ----------------------------------- | ------------------------------ |
+| `order_created`                     | `LemonSqueezyOrder`            |
+| `subscription_created`              | `LemonSqueezySubscription`     |
+| `subscription_updated`              | `LemonSqueezySubscription`     |
+| `subscription_cancelled`            | `LemonSqueezySubscription`     |
+| `license_key_created`               | `LemonSqueezyLicenseKey`       |
+
+## provider_metadata
+
+LemonSqueezy heavily relies on `provider_metadata` to pass required relationships like `store_id` and `variant_id` that are unique to their JSON:API architecture.
+
+```typescript
+await paykit.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe',
+  provider_metadata: {
+    store_id: 12345, // Required for creating customers
+  },
+});
+```
+
+### Refunds
+
+LemonSqueezy refunds are issued directly against a specific payment (order). The endpoint will issue a full refund if no amount is provided, or a partial refund if an `amount` is specified in cents.
+
+```typescript
+const refund = await paykit.refunds.create({
+  payment_id: '12345', // The LemonSqueezy Order ID
+  amount: 500, // Optional: Partial refund amount in cents
+  reason: 'Customer requested',
+});
+```

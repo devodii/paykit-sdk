@@ -1,7 +1,7 @@
 {
-  "name": "@paykit-sdk/core",
-  "version": "1.3.3",
-  "description": "The Payment Toolkit for Typescript",
+  "name": "@paykit-sdk/lemonsqueezy",
+  "version": "1.0.0",
+  "description": "LemonSqueezy provider for PayKit",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -16,25 +16,29 @@
     "dist"
   ],
   "paykit": {
-    "type": "core"
+    "type": "provider"
   },
   "scripts": {
-    "build": "tsup ",
-    "test": "vitest run --config ../../vitest.config.ts packages/paykit/src",
+    "build": "tsup",
+    "test": "vitest run --config ../../vitest.config.ts packages/lemonsqueezy/src",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
-    "payment",
-    "typescript",
-    "sdk",
+    "lemonsqueezy",
     "paykit",
-    "payment-processing"
+    "payment",
+    "typescript"
   ],
   "author": "Emmanuel Odii",
   "license": "ISC",
+  "peerDependencies": {
+    "@paykit-sdk/core": "^1.2.3"
+  },
   "devDependencies": {
-    "tsup": "^8.0.0",
-    "typescript": "^5.0.0"
+    "@paykit-sdk/core": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.2",
+    "zod": "^3.24.2"
   },
   "publishConfig": {
     "access": "public"
@@ -45,10 +49,5 @@
   },
   "bugs": {
     "url": "https://github.com/usepaykit/paykit-sdk/issues"
-  },
-  "dependencies": {
-    "commander": "^14.0.0",
-    "inquirer": "^12.7.0",
-    "zod": "^3.25.76"
   }
 }
