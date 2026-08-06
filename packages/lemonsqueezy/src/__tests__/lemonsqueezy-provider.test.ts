@@ -6,10 +6,10 @@ describe('LemonSqueezyProvider', () => {
   let provider: LemonSqueezyProvider;
 
   beforeEach(() => {
-    provider = new LemonSqueezyProvider({ apiKey: 'test_key' });
+    provider = new LemonSqueezyProvider({ apiKey: 'test_key', isSandbox: true });
     // Mock the HTTP client
-    vi.spyOn(provider._native as any, 'post').mockImplementation(async () => ({}));
-    vi.spyOn(provider._native as any, 'get').mockImplementation(async () => ({}));
+    vi.spyOn(provider._native, 'post').mockImplementation(async () => ({ ok: true as const, value: undefined as never }));
+    vi.spyOn(provider._native, 'get').mockImplementation(async () => ({ ok: true as const, value: undefined as never }));
   });
 
   it('should initialize with correct name', () => {
@@ -19,7 +19,7 @@ describe('LemonSqueezyProvider', () => {
   describe('createCustomer', () => {
     it('should map unified createCustomer to LemonSqueezy payload', async () => {
       const mockResponse = {
-        ok: true,
+        ok: true as const,
         value: {
           data: {
             type: 'customers',
@@ -37,7 +37,7 @@ describe('LemonSqueezyProvider', () => {
         },
       };
 
-      vi.spyOn(provider._native as any, 'post').mockResolvedValue(mockResponse);
+      vi.spyOn(provider._native, 'post').mockResolvedValue(mockResponse);
 
       const customer = await provider.createCustomer({
         email: 'john@example.com',

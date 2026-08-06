@@ -1,11 +1,11 @@
-export interface LemonSqueezyResponse<T = any> {
+export interface LemonSqueezyResponse<T = unknown> {
   data: T;
   meta?: unknown;
   jsonapi?: unknown;
   links?: unknown;
 }
 
-export interface LemonSqueezyResource<TAttributes = any> {
+export interface LemonSqueezyResource<TAttributes = unknown> {
   type: string;
   id: string;
   attributes: TAttributes;
@@ -103,16 +103,16 @@ export interface LemonSqueezyCheckoutAttributes {
   checkout_data: {
     email: string;
     name: string;
-    billing_address: any[];
+    billing_address: unknown[];
     tax_number: string;
     discount_code: string;
     custom: Record<string, unknown>;
-    variant_quantities: any[];
+    variant_quantities: unknown[];
   };
   /**
    * The preview of the checkout
    */
-  preview: any;
+  preview: unknown;
   /**
    * The expires at of the checkout
    */
@@ -324,7 +324,7 @@ export interface LemonSqueezySubscriptionAttributes {
   /**
    * The pause of the subscription
    */
-  pause: any | null;
+  pause: unknown | null;
   /**
    * The cancelled of the subscription
    */

@@ -96,7 +96,7 @@ export class LemonSqueezyProvider
   async createCheckout(
     params: CreateCheckoutSchema<ProviderMetadataRegistry['checkout']>,
   ): Promise<Checkout> {
-    const payload: any = {
+    const payload = {
       data: {
         type: 'checkouts',
         attributes: {
@@ -122,7 +122,7 @@ export class LemonSqueezyProvider
       { body: JSON.stringify(payload) },
     );
 
-    const checkoutData = this._throwIfFailed<LemonSqueezyCheckout>(response as any, 'createCheckout');
+    const checkoutData = this._throwIfFailed<LemonSqueezyCheckout>(response, 'createCheckout');
     return Checkout$inboundSchema(checkoutData);
   }
 
@@ -149,7 +149,7 @@ export class LemonSqueezyProvider
   async createCustomer(
     params: CreateCustomerParams<ProviderMetadataRegistry['customer']>,
   ): Promise<Customer> {
-    const payload: any = {
+    const payload = {
       data: {
         type: 'customers',
         attributes: {
@@ -168,7 +168,7 @@ export class LemonSqueezyProvider
       '/customers',
       { body: JSON.stringify(payload) },
     );
-    const customerData = this._throwIfFailed<LemonSqueezyCustomer>(response as any, 'createCustomer');
+    const customerData = this._throwIfFailed<LemonSqueezyCustomer>(response, 'createCustomer');
     return Customer$inboundSchema(customerData);
   }
 
@@ -181,7 +181,7 @@ export class LemonSqueezyProvider
   }
 
   async updateCustomer(id: string, params: UpdateCustomerParams): Promise<Customer> {
-    const payload: any = {
+    const payload = {
       data: {
         type: 'customers',
         id,
@@ -196,7 +196,7 @@ export class LemonSqueezyProvider
       `/customers/${id}`,
       { body: JSON.stringify(payload) },
     );
-    const customerData = this._throwIfFailed<LemonSqueezyCustomer>(response as any, 'updateCustomer');
+    const customerData = this._throwIfFailed<LemonSqueezyCustomer>(response, 'updateCustomer');
     return Customer$inboundSchema(customerData);
   }
 
@@ -242,7 +242,7 @@ export class LemonSqueezyProvider
       `/subscriptions/${id}`,
       { body: JSON.stringify(payload) },
     );
-    const subData = this._throwIfFailed<LemonSqueezySubscription>(response as any, 'updateSubscription');
+    const subData = this._throwIfFailed<LemonSqueezySubscription>(response, 'updateSubscription');
     return Subscription$inboundSchema(subData);
   }
 
@@ -250,7 +250,7 @@ export class LemonSqueezyProvider
     const response = await this._client.delete<LemonSqueezyResponse<LemonSqueezySubscription>>(
       `/subscriptions/${id}`,
     );
-    const subData = this._throwIfFailed<LemonSqueezySubscription>(response as any, 'cancelSubscription');
+    const subData = this._throwIfFailed<LemonSqueezySubscription>(response, 'cancelSubscription');
     return Subscription$inboundSchema(subData);
   }
 
@@ -296,7 +296,7 @@ export class LemonSqueezyProvider
   // --- Refund ---
 
   async createRefund(params: CreateRefundSchema): Promise<Refund> {
-    const payload: any = {
+    const payload: { data: { type: string; id: string; attributes?: { amount: number } } } = {
       data: {
         type: 'orders',
         id: params.payment_id,
@@ -314,7 +314,7 @@ export class LemonSqueezyProvider
       { body: JSON.stringify(payload) },
     );
 
-    const orderData = this._throwIfFailed<LemonSqueezyOrder>(response as any, 'createRefund');
+    const orderData = this._throwIfFailed<LemonSqueezyOrder>(response, 'createRefund');
     return Refund$inboundSchema(orderData);
   }
 
@@ -350,7 +350,7 @@ export class LemonSqueezyProvider
 
     const event = JSON.parse(payload.body) as LemonSqueezyWebhookEvent;
 
-    const results: Array<WebhookEventPayload<any>> = [];
+    const results: Array<WebhookEventPayload> = [];
 
     results.push({
       id: `lemonsqueezy:${event.meta.event_name}:${crypto.randomUUID()}`,
@@ -358,7 +358,7 @@ export class LemonSqueezyProvider
       created: Math.floor(Date.now() / 1000),
       data: event.data,
       is_raw: true,
-    } as any);
+    } as WebhookEventPayload);
 
     const standardEvents = this.mapToStandardEvents(event);
     if (standardEvents) results.push(...standardEvents);
@@ -374,7 +374,7 @@ export class LemonSqueezyProvider
 
     switch (event.meta.event_name) {
       case 'order_created': {
-        const order = Payment$inboundSchema(event.data as any);
+        const order = Payment$inboundSchema(event.data as LemonSqueezyOrder);
         return [
           paykitEvent$InboundSchema({
             type: 'payment.updated',
@@ -387,13 +387,13 @@ export class LemonSqueezyProvider
       case 'subscription_created':
       case 'subscription_updated':
       case 'subscription_cancelled': {
-        const sub = Subscription$inboundSchema(event.data as any);
+        const sub = Subscription$inboundSchema(event.data as LemonSqueezySubscription);
         const action = event.meta.event_name.split('_')[1];
         const paykitType = `subscription.${action === 'cancelled' ? 'canceled' : action}` as const;
 
         return [
           paykitEvent$InboundSchema({
-            type: paykitType as any,
+            type: paykitType as 'subscription.created' | 'subscription.updated' | 'subscription.canceled',
             created,
             id,
             data: sub,

@@ -65,7 +65,7 @@ export const Payment$inboundSchema = (
   
   let status: Payment['status'] = 'pending';
   if (attrs.status === 'paid') status = 'succeeded';
-  if (attrs.refunded) status = 'refunded' as any; // Core might not have refunded, mapped to succeeded + refund logic
+  if (attrs.refunded) status = 'refunded' as Payment['status']; // Core might not have refunded, mapped to succeeded + refund logic
 
   const customer: Payee | null = attrs.user_email 
     ? { email: attrs.user_email } 
