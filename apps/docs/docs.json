@@ -29,6 +29,7 @@
           "providers/chapa",
           "providers/comgate",
           "providers/gopay",
+          "providers/lemonsqueezy",
           "providers/mercadopago",
           "providers/moneygram",
           "providers/monnify",
