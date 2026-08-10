@@ -53,6 +53,7 @@ The PayKit provider implements the following operational endpoints:
 - `subscriptions.retrieve`
 - `subscriptions.update`
 - `subscriptions.cancel`
+- `subscriptions.delete`
 
 *Note: Operations like `checkouts.update` and `subscriptions.create` are not natively supported by the LemonSqueezy API and will intentionally throw an "Unsupported" error.*
 
@@ -87,14 +88,17 @@ LemonSqueezy signs webhooks with HMAC-SHA256 via the `x-signature` header.
 ```typescript
 const webhook = paykit.webhooks
   .setup({ webhookSecret: process.env.LEMONSQUEEZY_WEBHOOK_SECRET! })
-  .on('order_created', async event => {
-    // Fired when a payment completes successfully
+  .on('payment.updated', async event => {
+    /* order_created */
   })
-  .on('subscription_created', async event => {
-    // Fired for new subscriptions
+  .on('subscription.created', async event => {
+    /* subscription_created */
   })
-  .on('subscription_updated', async event => {
-    // Fired when a subscription renews or is changed
+  .on('subscription.updated', async event => {
+    /* subscription_updated */
+  })
+  .on('subscription.canceled', async event => {
+    /* subscription_cancelled */
   });
 
 await webhook.handle({
@@ -106,15 +110,24 @@ await webhook.handle({
 
 ### Raw LemonSqueezy events
 
-All webhook events fired by the LemonSqueezy provider emit the raw `event_name` provided by LemonSqueezy (e.g. `order_created`, `subscription_created`, `subscription_cancelled`). You can listen to any native LemonSqueezy event.
+All webhook events fired by the LemonSqueezy provider emit the raw `event_name` provided by LemonSqueezy (e.g. `lemonsqueezy.order_created`, `lemonsqueezy.subscription_created`). You can listen to any native LemonSqueezy event.
 
-| Event                               | Data type                      |
-| ----------------------------------- | ------------------------------ |
-| `order_created`                     | `LemonSqueezyOrder`            |
-| `subscription_created`              | `LemonSqueezySubscription`     |
-| `subscription_updated`              | `LemonSqueezySubscription`     |
-| `subscription_cancelled`            | `LemonSqueezySubscription`     |
-| `license_key_created`               | `LemonSqueezyLicenseKey`       |
+```typescript
+paykit.webhooks
+  .setup({ webhookSecret: process.env.LEMONSQUEEZY_WEBHOOK_SECRET! })
+  .on('lemonsqueezy.order_created', async event => {
+    // event.data is typed as LemonSqueezyOrder
+  });
+```
+
+A subset of these events also emit a standard PayKit event:
+
+| Raw event                               | PayKit event                                     |
+| --------------------------------------- | ------------------------------------------------ |
+| `lemonsqueezy.order_created`            | `payment.updated`                                |
+| `lemonsqueezy.subscription_created`     | `subscription.created`                           |
+| `lemonsqueezy.subscription_updated`     | `subscription.updated`                           |
+| `lemonsqueezy.subscription_cancelled`   | `subscription.canceled`                          |
 
 ## provider_metadata
 
