@@ -26,14 +26,12 @@ export default function NotFound() {
             for.
           </p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
-            {/* @ts-expect-error React 19 type conflict with Radix UI asChild */}
             <Button asChild variant="outline">
               <Link href="/" className="flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Go back
               </Link>
             </Button>
-            {/* @ts-expect-error React 19 type conflict with Radix UI asChild */}
             <Button asChild>
               <Link href="/" className="flex items-center gap-2">
                 <Home className="h-4 w-4" />
