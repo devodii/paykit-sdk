@@ -1,5 +1,11 @@
 # @paykit-sdk/polar
 
+## 1.3.3
+
+### Patch Changes
+
+- a9f7b4a: chore: expose the http client on API providers
+
 ## 1.3.2
 
 ### Patch Changes

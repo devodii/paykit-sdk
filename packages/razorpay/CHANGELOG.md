@@ -1,5 +1,11 @@
 # @paykit-sdk/razorpay
 
+## 1.0.2
+
+### Patch Changes
+
+- a9f7b4a: chore: expose the http client on API providers
+
 ## 1.0.1
 
 ### Patch Changes
