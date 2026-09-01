@@ -305,16 +305,52 @@ export interface BachsWebhookEnvelope<T = Record<string, unknown>> {
 }
 
 export interface BachsRawEvents extends Record<string, any> {
+  /** Checkout */
+  'bachs.checkout.completed': Record<string, unknown>;
+  'bachs.checkout.expired': Record<string, unknown>;
+
+  /** Payments */
   'bachs.collection.succeeded': Record<string, unknown>;
   'bachs.collection.failed': Record<string, unknown>;
-  'bachs.collection.abandoned': Record<string, unknown>;
   'bachs.collection.underpaid': Record<string, unknown>;
-  'bachs.refund.created': Record<string, unknown>;
-  'bachs.refund.paid': Record<string, unknown>;
-  'bachs.refund.failed': Record<string, unknown>;
-  'bachs.customer.created': Record<string, unknown>;
-  'bachs.customer.updated': Record<string, unknown>;
+
+  /** Subscriptions */
   'bachs.customer.subscription.created': Record<string, unknown>;
   'bachs.customer.subscription.updated': Record<string, unknown>;
   'bachs.customer.subscription.deleted': Record<string, unknown>;
+
+  /** Invoices */
+  'bachs.invoice.created': Record<string, unknown>;
+  'bachs.invoice.paid': Record<string, unknown>;
+  'bachs.invoice.payment_failed': Record<string, unknown>;
+
+  /** Withdrawals */
+  'bachs.payout.created': Record<string, unknown>;
+  'bachs.payout.paid': Record<string, unknown>;
+  'bachs.payout.failed': Record<string, unknown>;
+
+  /** Refunds */
+  'bachs.refund.created': Record<string, unknown>;
+  'bachs.refund.paid': Record<string, unknown>;
+  'bachs.refund.failed': Record<string, unknown>;
+
+  /** Disputes */
+  'bachs.dispute.created': Record<string, unknown>;
+  'bachs.dispute.updated': Record<string, unknown>;
+
+  /** Conversions */
+  'bachs.conversion.completed': Record<string, unknown>;
+  'bachs.conversion.failed': Record<string, unknown>;
+
+  /** Customers */
+  'bachs.customer.created': Record<string, unknown>;
+  'bachs.customer.updated': Record<string, unknown>;
+
+  /**
+   * Connect.
+   * Only delivered to endpoints whose `event_source` is connect` or `all`, which is not the default.
+   */
+  'bachs.account.updated': Record<string, unknown>;
+  'bachs.capability.updated': Record<string, unknown>;
+  'bachs.transfer.created': Record<string, unknown>;
 }

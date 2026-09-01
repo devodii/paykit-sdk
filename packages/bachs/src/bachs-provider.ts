@@ -804,8 +804,7 @@ export class BachsProvider
     switch (event.type) {
       case 'collection.succeeded':
       case 'collection.failed':
-      case 'collection.underpaid':
-      case 'collection.abandoned': {
+      case 'collection.underpaid': {
         const data = event.data as { checkout_id?: string | null };
 
         if (!data.checkout_id) return null;
@@ -817,8 +816,7 @@ export class BachsProvider
         const type =
           event.type === 'collection.succeeded'
             ? 'payment.succeeded'
-            : event.type === 'collection.failed' ||
-                event.type === 'collection.abandoned'
+            : event.type === 'collection.failed'
               ? 'payment.failed'
               : 'payment.updated';
 

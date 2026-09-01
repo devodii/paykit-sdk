@@ -201,7 +201,6 @@ All available raw events and their PayKit mappings:
 | ------------------------------------- | ----------------------- |
 | `bachs.collection.succeeded`          | `payment.succeeded`     |
 | `bachs.collection.failed`             | `payment.failed`        |
-| `bachs.collection.abandoned`          | `payment.failed`        |
 | `bachs.collection.underpaid`          | `payment.updated`       |
 | `bachs.refund.created`                | `refund.created`        |
 | `bachs.refund.paid`                   | `refund.created`        |
@@ -211,10 +210,14 @@ All available raw events and their PayKit mappings:
 | `bachs.customer.subscription.deleted` | `subscription.canceled` |
 | `bachs.customer.created`              | `customer.created`      |
 | `bachs.customer.updated`              | `customer.updated`      |
-| `bachs.payout.*`                      | _(raw only)_            |
+| `bachs.checkout.*`                    | _(raw only)_            |
 | `bachs.invoice.*`                     | _(raw only)_            |
+| `bachs.payout.*`                      | _(raw only)_            |
 | `bachs.dispute.*`                     | _(raw only)_            |
 | `bachs.conversion.*`                  | _(raw only)_            |
+| `bachs.account.updated`               | _(raw only)_            |
+| `bachs.capability.updated`            | _(raw only)_            |
+| `bachs.transfer.created`              | _(raw only)_            |
 
 ## Escape hatch
 
