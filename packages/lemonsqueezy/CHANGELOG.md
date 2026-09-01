@@ -1,5 +1,11 @@
 # @paykit-sdk/lemonsqueezy
 
+## 1.1.1
+
+### Patch Changes
+
+- a9f7b4a: chore: expose the http client on API providers
+
 ## 1.1.0
 
 ### Minor Changes
