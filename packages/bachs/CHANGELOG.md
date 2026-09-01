@@ -1,5 +1,11 @@
 # @paykit-sdk/bachs
 
+## 2.0.2
+
+### Patch Changes
+
+- 30121fd: chore: sync bachs openapi spec and complete the raw event types
+
 ## 2.0.1
 
 ### Patch Changes
