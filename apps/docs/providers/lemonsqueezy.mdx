@@ -40,9 +40,10 @@ npm install @paykit-sdk/lemonsqueezy
 
 ## Supported Endpoints
 
-LemonSqueezy’s API strictly follows JSON:API standards. Certain resources like stores, products, and standard checkouts are largely managed via their hosted dashboard. 
+LemonSqueezy’s API strictly follows JSON:API standards. Certain resources like stores, products, and standard checkouts are largely managed via their hosted dashboard.
 
 The PayKit provider implements the following operational endpoints:
+
 - `customers.create`
 - `customers.retrieve`
 - `customers.update`
@@ -55,11 +56,11 @@ The PayKit provider implements the following operational endpoints:
 - `subscriptions.cancel`
 - `subscriptions.delete`
 
-*Note: Operations like `checkouts.update` and `subscriptions.create` are not natively supported by the LemonSqueezy API and will intentionally throw an "Unsupported" error.*
+_Note: Operations like `checkouts.update` and `subscriptions.create` are not natively supported by the LemonSqueezy API and will intentionally throw an "Unsupported" error._
 
 ## How it works
 
-To create a checkout session for LemonSqueezy, you must provide your LemonSqueezy `store_id` and the `variant_id` representing the product you are selling. 
+To create a checkout session for LemonSqueezy, you must provide your LemonSqueezy `store_id` and the `variant_id` representing the product you are selling.
 
 ```typescript
 const checkout = await paykit.checkouts.create({
@@ -78,7 +79,9 @@ const checkout = await paykit.checkouts.create({
 // Redirect the customer to the checkout url returned from the API
 
 // Once they're back, confirm the checkout state
-const retrievedCheckout = await paykit.checkouts.retrieve(checkout.id);
+const retrievedCheckout = await paykit.checkouts.retrieve(
+  checkout.id,
+);
 ```
 
 ## Webhooks
@@ -153,4 +156,14 @@ const refund = await paykit.refunds.create({
   amount: 500, // Optional: Partial refund amount in cents
   reason: 'Customer requested',
 });
+```
+
+## Escape hatch
+
+`paykit._native` returns PayKit's [HTTP client](/concepts/http-client), already pointed at LemonSqueezy and authenticated with your credentials. Use it to call endpoints PayKit does not map yet.
+
+```typescript
+const result = await paykit._native.get('/orders/123');
+
+if (result.ok) console.log(result.value);
 ```

@@ -165,3 +165,15 @@ await paykit.refunds.create({
   reason: 'Customer request',
 });
 ```
+
+## Escape hatch
+
+`paykit._native` returns PayKit's [HTTP client](/concepts/http-client), already pointed at Monnify and authenticated with your credentials. Use it to call endpoints PayKit does not map yet.
+
+```typescript
+const result = await paykit._native.get(
+  '/v2/merchant/transactions/query',
+);
+
+if (result.ok) console.log(result.value);
+```

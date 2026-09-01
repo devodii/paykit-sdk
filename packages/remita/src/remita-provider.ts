@@ -147,14 +147,15 @@ const CANCEL_INVOICE_PATH = '/echannelsvc/v2/api/deactivate.json';
  */
 export class RemitaProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<RemitaMetadata, null, RemitaRawEvents>
+  implements
+    PayKitProvider<RemitaMetadata, HTTPClient, RemitaRawEvents>
 {
   readonly providerName = providerName;
   readonly isSandbox: boolean;
   private readonly _client: HTTPClient;
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   constructor(private readonly opts: RemitaOptions) {

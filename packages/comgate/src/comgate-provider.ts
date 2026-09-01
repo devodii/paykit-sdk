@@ -85,7 +85,8 @@ const providerName = 'comgate';
 
 export class ComgateProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<ComgateMetadata, null, ComgateRawEvents>
+  implements
+    PayKitProvider<ComgateMetadata, HTTPClient, ComgateRawEvents>
 {
   readonly providerName = providerName;
   private baseUrl: string;
@@ -113,8 +114,8 @@ export class ComgateProvider
     this.isSandbox = opts.isSandbox;
   }
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   private _throwOnError = <T>(

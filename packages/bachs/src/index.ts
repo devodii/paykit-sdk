@@ -1,4 +1,4 @@
-import { validateRequiredKeys } from '@paykit-sdk/core';
+import { validateRequiredKeys, PayKit } from '@paykit-sdk/core';
 import { BachsOptions, BachsProvider } from './bachs-provider';
 
 export const createBachs = (config: BachsOptions) => {

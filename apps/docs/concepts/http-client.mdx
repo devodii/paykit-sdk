@@ -1,0 +1,49 @@
+---
+title: HTTP Client
+description: The HTTP client PayKit exposes for providers without an official SDK.
+---
+
+Some providers ship an official SDK, and for those `_native` hands you that SDK. For the rest, `_native` gives you PayKit's own HTTP client, already pointed at the provider's base URL and authenticated with the credentials you configured.
+
+## Methods
+
+```typescript
+paykit._native.get<T>(endpoint, options?);
+paykit._native.post<T>(endpoint, options?);
+paykit._native.put<T>(endpoint, options?);
+paykit._native.patch<T>(endpoint, options?);
+paykit._native.delete<T>(endpoint, options?);
+```
+
+`endpoint` is the path, relative to the provider's base URL. `options` is a normal `fetch` init object without `method`.
+
+## Example
+
+```typescript
+const result = await paykit._native.post<{ id: string }>('/transactions', {
+  body: JSON.stringify({ amount: 5000, currency: 'NGN' }),
+});
+
+if (!result.ok) {
+  console.error(result.error);
+  return;
+}
+
+console.log(result.value.id);
+```
+
+## Why use it
+
+- Base URL and auth headers are already set, so you only pass the path.
+- Sends and parses JSON for you.
+- Returns a `Result` instead of throwing, so you check `result.ok`.
+- Retries rate limits, timeouts, dropped connections and 5xx responses up to 3 times with backoff.
+- Classifies failures into the same error types as the rest of PayKit.
+- Types the response through the generic on each method.
+- Built on `fetch`, so there is no extra dependency and it runs wherever PayKit runs.
+
+## Import the type
+
+```typescript
+import { HTTPClient } from '@paykit-sdk/core';
+```

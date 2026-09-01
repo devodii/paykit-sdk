@@ -62,15 +62,15 @@ export const Payment$inboundSchema = (
   data: LemonSqueezyOrder,
 ): Payment => {
   const attrs = data.attributes;
-  
+
   let status: Payment['status'] = 'pending';
   if (attrs.status === 'paid') status = 'succeeded';
   if (attrs.refunded) status = 'refunded' as Payment['status']; // Core might not have refunded, mapped to succeeded + refund logic
 
-  const customer: Payee | null = attrs.user_email 
-    ? { email: attrs.user_email } 
-    : attrs.customer_id 
-      ? { id: String(attrs.customer_id) } 
+  const customer: Payee | null = attrs.user_email
+    ? { email: attrs.user_email }
+    : attrs.customer_id
+      ? { id: String(attrs.customer_id) }
       : null;
 
   return {
@@ -90,17 +90,17 @@ export const Subscription$inboundSchema = (
   data: LemonSqueezySubscription,
 ): Subscription => {
   const attrs = data.attributes;
-  
+
   let status: Subscription['status'] = 'active';
   if (attrs.status === 'past_due') status = 'past_due';
   if (attrs.status === 'unpaid') status = 'past_due';
   if (attrs.status === 'cancelled') status = 'canceled';
   if (attrs.status === 'expired') status = 'canceled';
-  
-  const customer: Payee | null = attrs.user_email 
-    ? { email: attrs.user_email } 
-    : attrs.customer_id 
-      ? { id: String(attrs.customer_id) } 
+
+  const customer: Payee | null = attrs.user_email
+    ? { email: attrs.user_email }
+    : attrs.customer_id
+      ? { id: String(attrs.customer_id) }
       : null;
 
   return {
@@ -112,7 +112,9 @@ export const Subscription$inboundSchema = (
     currency: 'USD',
     billing_interval: 'month', // LemonSqueezy handles this via variant, assume month if unknown
     current_period_start: new Date(attrs.created_at),
-    current_period_end: new Date(attrs.renews_at || attrs.ends_at || attrs.updated_at),
+    current_period_end: new Date(
+      attrs.renews_at || attrs.ends_at || attrs.updated_at,
+    ),
     metadata: null,
     custom_fields: null,
     requires_action: false,

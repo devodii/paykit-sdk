@@ -92,7 +92,8 @@ const providerName = 'monnify';
 
 export class MonnifyProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<MonnifyMetadata, null, MonnifyRawEvents>
+  implements
+    PayKitProvider<MonnifyMetadata, HTTPClient, MonnifyRawEvents>
 {
   readonly providerName = providerName;
   readonly isSandbox: boolean;
@@ -101,8 +102,8 @@ export class MonnifyProvider
 
   private tokenManager: OAuth2TokenManager;
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   constructor(private readonly opts: MonnifyOptions) {

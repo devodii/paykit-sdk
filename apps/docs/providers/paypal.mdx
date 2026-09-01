@@ -180,3 +180,13 @@ await paykit.refunds.create({
   amount: 1000, // in currency units (e.g. cents)
 });
 ```
+
+## Escape hatch
+
+`paykit._native` returns the raw PayPal SDK client, so you can reach anything PayKit does not map yet without leaving PayKit. Providers without an official SDK return [our HTTP client](/concepts/http-client) instead.
+
+```typescript
+import { OrdersController } from '@paypal/paypal-server-sdk';
+
+const orders = new OrdersController(paykit._native);
+```

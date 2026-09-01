@@ -91,7 +91,8 @@ const providerName = 'paystack';
 
 export class PaystackProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<PaystackMetadata, null, PaystackRawEvents>
+  implements
+    PayKitProvider<PaystackMetadata, HTTPClient, PaystackRawEvents>
 {
   readonly providerName = providerName;
   private readonly _client: HTTPClient;
@@ -118,8 +119,8 @@ export class PaystackProvider
     this.isSandbox = opts.isSandbox;
   }
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   private _toCamel(obj: any): any {
@@ -683,10 +684,13 @@ export class PaystackProvider
       );
     }
 
-    const providerMetadata = (data.provider_metadata as Record<string, unknown>) || {};
+    const providerMetadata =
+      (data.provider_metadata as Record<string, unknown>) || {};
     const merchantNote =
-      providerMetadata.merchant_note || data.reason || 'Duplicate charge';
-    
+      providerMetadata.merchant_note ||
+      data.reason ||
+      'Duplicate charge';
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { merchant_note, ...restMetadata } = providerMetadata;
 

@@ -96,7 +96,8 @@ const providerName = 'razorpay';
 
 export class RazorpayProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<RazorpayMetadata, null, RazorpayRawEvents>
+  implements
+    PayKitProvider<RazorpayMetadata, HTTPClient, RazorpayRawEvents>
 {
   readonly providerName = providerName;
   private readonly _client: HTTPClient;
@@ -123,8 +124,8 @@ export class RazorpayProvider
     this.isSandbox = opts.isSandbox;
   }
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   private async unwrap<T>(result: {

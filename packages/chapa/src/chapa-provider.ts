@@ -85,7 +85,7 @@ const providerName = 'chapa';
 
 export class ChapaProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<ChapaMetadata, null, ChapaRawEvents>
+  implements PayKitProvider<ChapaMetadata, HTTPClient, ChapaRawEvents>
 {
   readonly providerName = providerName;
   private readonly _client: HTTPClient;
@@ -112,8 +112,8 @@ export class ChapaProvider
     this.isSandbox = opts.isSandbox;
   }
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   private async unwrap<T>(

@@ -189,3 +189,7 @@ await paykit.refunds.create({
 ```
 
 The `metadata` passed to `paykit.refunds.create` must include `currency`. The `orderId` is automatically extracted from the payment's stored metadata.
+
+## Escape hatch
+
+Redsys has no public API client to hand back, so `_native` throws. Other providers return either their official SDK or [our HTTP client](/concepts/http-client).

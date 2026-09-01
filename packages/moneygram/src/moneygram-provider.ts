@@ -229,7 +229,7 @@ const toPemPublicKey = (base64Der: string): string => {
 export class MoneyGramProvider
   extends AbstractPayKitProvider
   implements
-    PayKitProvider<MoneyGramMetadata, null, MoneyGramRawEvents>
+    PayKitProvider<MoneyGramMetadata, HTTPClient, MoneyGramRawEvents>
 {
   readonly providerName = providerName;
   readonly providerVersion = process.env.PROVIDER_VERSION!;
@@ -240,8 +240,8 @@ export class MoneyGramProvider
 
   private tokenManager: OAuth2TokenManager;
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   /**

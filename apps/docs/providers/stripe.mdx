@@ -166,3 +166,12 @@ await paykit.refunds.create({
   },
 });
 ```
+
+## Escape hatch
+
+`paykit._native` returns the raw Stripe SDK client, so you can reach anything PayKit does not map yet without leaving PayKit. Providers without an official SDK return [our HTTP client](/concepts/http-client) instead.
+
+```typescript
+const session =
+  await paykit._native.checkout.sessions.retrieve('cs_123');
+```

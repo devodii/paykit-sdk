@@ -187,3 +187,13 @@ await paykit.refunds.create({
   reason: 'customer_request',
 });
 ```
+
+## Escape hatch
+
+`paykit._native` returns the raw Polar SDK client, so you can reach anything PayKit does not map yet without leaving PayKit. Providers without an official SDK return [our HTTP client](/concepts/http-client) instead.
+
+```typescript
+const checkout = await paykit._native.checkouts.get({
+  id: 'chk_123',
+});
+```

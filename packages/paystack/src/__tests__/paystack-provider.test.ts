@@ -601,7 +601,9 @@ describe('PaystackProvider — missing coverage', () => {
     ...overrides,
   });
 
-  const createCustomerResponse = (overrides?: Record<string, unknown>) =>
+  const createCustomerResponse = (
+    overrides?: Record<string, unknown>,
+  ) =>
     jsonResponse({
       status: true,
       message: 'Customer created',
@@ -710,7 +712,8 @@ describe('PaystackProvider — missing coverage', () => {
         amount: 10000,
         message: null,
         gateway_response: 'Successful',
-        paid_at: txStatus === 'success' ? '2026-07-24T08:14:08.000Z' : null,
+        paid_at:
+          txStatus === 'success' ? '2026-07-24T08:14:08.000Z' : null,
         created_at: '2026-07-24T07:54:17.000Z',
         channel: 'card',
         currency: 'NGN',
@@ -737,7 +740,10 @@ describe('PaystackProvider — missing coverage', () => {
   // POST /refund — shape based on PaystackRefund interface
   // (real curl returned "Cannot refund less than NGN50" due to amount constraint,
   //  not a schema issue — existing webhook refund.processed test confirms field names)
-  const refundApiResponse = (currency = 'NGN', merchantNote = 'Test refund from paykit-sdk audit') =>
+  const refundApiResponse = (
+    currency = 'NGN',
+    merchantNote = 'Test refund from paykit-sdk audit',
+  ) =>
     jsonResponse({
       status: true,
       message: 'Refund created successfully',
@@ -763,7 +769,9 @@ describe('PaystackProvider — missing coverage', () => {
 
   describe('checkout', () => {
     it('retrieveCheckout maps a verified transaction to a Checkout', async () => {
-      fetchMock.mockResolvedValueOnce(verifyTransactionResponse('abandoned'));
+      fetchMock.mockResolvedValueOnce(
+        verifyTransactionResponse('abandoned'),
+      );
 
       const result = await makeProvider().retrieveCheckout(
         'paykit-test-ref-001',
@@ -784,7 +792,8 @@ describe('PaystackProvider — missing coverage', () => {
         jsonResponse({ status: true, message: 'ok', data: null }),
       );
 
-      const result = await makeProvider().retrieveCheckout('nonexistent');
+      const result =
+        await makeProvider().retrieveCheckout('nonexistent');
       expect(result).toBeNull();
     });
 
@@ -878,7 +887,8 @@ describe('PaystackProvider — missing coverage', () => {
         jsonResponse({ status: true, message: 'ok', data: null }),
       );
 
-      const result = await makeProvider().retrieveCustomer('CUS_missing');
+      const result =
+        await makeProvider().retrieveCustomer('CUS_missing');
       expect(result).toBeNull();
     });
 
@@ -891,14 +901,15 @@ describe('PaystackProvider — missing coverage', () => {
         }),
       );
 
-      const result = await makeProvider().updateCustomer('CUS_abc123', {
-        phone: '+2348099999999',
-      });
+      const result = await makeProvider().updateCustomer(
+        'CUS_abc123',
+        {
+          phone: '+2348099999999',
+        },
+      );
 
       const [url, options] = fetchMock.mock.calls[0];
-      expect(url).toBe(
-        'https://api.paystack.co/customer/CUS_abc123',
-      );
+      expect(url).toBe('https://api.paystack.co/customer/CUS_abc123');
 
       const body = JSON.parse((options as { body: string }).body);
       expect(body.phone).toBe('+2348099999999');
@@ -947,7 +958,9 @@ describe('PaystackProvider — missing coverage', () => {
       // Bug 4 regression: item_id was '' before fix (plan.plan_code unreadable)
       expect(result.item_id).toBe('PLN_gi1quck1wlv5zk1');
       expect(result.billing_interval).toBe('month');
-      expect(result.customer).toEqual({ email: 'test.customer@example.com' });
+      expect(result.customer).toEqual({
+        email: 'test.customer@example.com',
+      });
     });
 
     it('retrieveSubscription maps a Paystack subscription', async () => {
@@ -976,7 +989,8 @@ describe('PaystackProvider — missing coverage', () => {
         jsonResponse({ status: true, message: 'ok', data: null }),
       );
 
-      const result = await makeProvider().retrieveSubscription('SUB_missing');
+      const result =
+        await makeProvider().retrieveSubscription('SUB_missing');
       expect(result).toBeNull();
     });
 
@@ -1059,7 +1073,9 @@ describe('PaystackProvider — missing coverage', () => {
 
   describe('payment', () => {
     it('retrievePayment maps a verified successful transaction to a Payment', async () => {
-      fetchMock.mockResolvedValueOnce(verifyTransactionResponse('success'));
+      fetchMock.mockResolvedValueOnce(
+        verifyTransactionResponse('success'),
+      );
 
       const result = await makeProvider().retrievePayment(
         'paykit-test-ref-001',
@@ -1082,7 +1098,8 @@ describe('PaystackProvider — missing coverage', () => {
         jsonResponse({ status: true, message: 'ok', data: null }),
       );
 
-      const result = await makeProvider().retrievePayment('nonexistent');
+      const result =
+        await makeProvider().retrievePayment('nonexistent');
       expect(result).toBeNull();
     });
 
@@ -1134,7 +1151,9 @@ describe('PaystackProvider — missing coverage', () => {
       const body = JSON.parse((options as { body: string }).body);
       expect(body.transaction).toBe('paykit-sub-test-001');
       expect(body.amount).toBe(5000);
-      expect(body.merchant_note).toBe('Test refund from paykit-sdk audit');
+      expect(body.merchant_note).toBe(
+        'Test refund from paykit-sdk audit',
+      );
 
       expect(result.id).toBe('1');
       expect(result.amount).toBe(5000);
@@ -1180,8 +1199,8 @@ describe('PaystackProvider — missing coverage', () => {
         metadata: null,
         provider_metadata: {
           merchant_note: 'Provider Metadata Reason',
-          other_field: 'keep me'
-        }
+          other_field: 'keep me',
+        },
       } as never);
 
       const [url, options] = fetchMock.mock.calls[0];
@@ -1191,7 +1210,9 @@ describe('PaystackProvider — missing coverage', () => {
     });
 
     it('createRefund uses the reason from merchant_note (Bug 4 regression)', async () => {
-      fetchMock.mockResolvedValueOnce(refundApiResponse('NGN', 'Bad stuff'));
+      fetchMock.mockResolvedValueOnce(
+        refundApiResponse('NGN', 'Bad stuff'),
+      );
 
       const result = await makeProvider().createRefund({
         payment_id: 'txn_test',

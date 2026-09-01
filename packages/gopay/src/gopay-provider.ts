@@ -112,7 +112,7 @@ const providerName = 'gopay';
 
 export class GoPayProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<GoPayMetadata, null, GoPayRawEvents>
+  implements PayKitProvider<GoPayMetadata, HTTPClient, GoPayRawEvents>
 {
   readonly providerName = providerName;
   readonly providerVersion = process.env.PROVIDER_VERSION!;
@@ -124,8 +124,8 @@ export class GoPayProvider
 
   private tokenManager: OAuth2TokenManager;
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   constructor(private readonly opts: GoPayOptions) {

@@ -59,7 +59,7 @@ const optionsSchema = schema<MyProviderOptions>()(
 // 4. Implement the provider
 export class MyProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<MyMetadata, null, MyRawEvents>
+  implements PayKitProvider<MyMetadata, HTTPClient, MyRawEvents>
 {
   readonly providerName = 'my-provider';
   private _client: HTTPClient;
@@ -83,8 +83,9 @@ export class MyProvider
     });
   }
 
-  get _native() {
-    return null;
+  // Escape hatch: return your SDK client here, or the HTTP client
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   createCheckout = async (

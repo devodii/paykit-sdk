@@ -56,7 +56,8 @@ export interface LemonSqueezyCustomerAttributes {
   test_mode: boolean;
 }
 
-export type LemonSqueezyCustomer = LemonSqueezyResource<LemonSqueezyCustomerAttributes>;
+export type LemonSqueezyCustomer =
+  LemonSqueezyResource<LemonSqueezyCustomerAttributes>;
 
 export interface LemonSqueezyCheckoutAttributes {
   /**
@@ -135,7 +136,8 @@ export interface LemonSqueezyCheckoutAttributes {
   url: string;
 }
 
-export type LemonSqueezyCheckout = LemonSqueezyResource<LemonSqueezyCheckoutAttributes>;
+export type LemonSqueezyCheckout =
+  LemonSqueezyResource<LemonSqueezyCheckoutAttributes>;
 
 export interface LemonSqueezyOrderAttributes {
   /**
@@ -262,7 +264,8 @@ export interface LemonSqueezyOrderAttributes {
   status_formatted: string;
 }
 
-export type LemonSqueezyOrder = LemonSqueezyResource<LemonSqueezyOrderAttributes>;
+export type LemonSqueezyOrder =
+  LemonSqueezyResource<LemonSqueezyOrderAttributes>;
 
 export interface LemonSqueezySubscriptionAttributes {
   /**
@@ -366,7 +369,8 @@ export interface LemonSqueezySubscriptionAttributes {
   test_mode: boolean;
 }
 
-export type LemonSqueezySubscription = LemonSqueezyResource<LemonSqueezySubscriptionAttributes>;
+export type LemonSqueezySubscription =
+  LemonSqueezyResource<LemonSqueezySubscriptionAttributes>;
 
 export interface LemonSqueezyWebhookEvent {
   meta: {

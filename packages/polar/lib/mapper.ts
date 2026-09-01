@@ -12,13 +12,13 @@ import {
   omitInternalMetadata,
   PAYKIT_METADATA_KEY,
 } from '@paykit-sdk/core';
+import { SubscriptionBillingInterval } from '@paykit-sdk/core';
 import { Checkout } from '@polar-sh/sdk/models/components/checkout';
 import { CheckoutStatus } from '@polar-sh/sdk/models/components/checkoutstatus.js';
 import { Customer } from '@polar-sh/sdk/models/components/customer';
 import { Order } from '@polar-sh/sdk/models/components/order';
 import { Refund } from '@polar-sh/sdk/models/components/refund.js';
 import { Subscription } from '@polar-sh/sdk/models/components/subscription';
-import { SubscriptionBillingInterval } from '@paykit-sdk/core';
 
 /**
  * @internal

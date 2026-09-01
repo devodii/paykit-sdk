@@ -103,7 +103,8 @@ const recurringIntervalMap: Record<
 
 export class XenditProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<XenditMetadata, null, XenditRawEvents>
+  implements
+    PayKitProvider<XenditMetadata, HTTPClient, XenditRawEvents>
 {
   readonly providerName = providerName;
   private readonly _client: HTTPClient;
@@ -130,8 +131,8 @@ export class XenditProvider
     this.isSandbox = opts.isSandbox;
   }
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   private async unwrap<T>(result: {

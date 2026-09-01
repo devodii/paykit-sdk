@@ -85,7 +85,11 @@ const providerName = 'mercadopago';
 export class MercadoPagoProvider
   extends AbstractPayKitProvider
   implements
-    PayKitProvider<MercadoPagoMetadata, null, MercadoPagoRawEvents>
+    PayKitProvider<
+      MercadoPagoMetadata,
+      HTTPClient,
+      MercadoPagoRawEvents
+    >
 {
   readonly providerName = providerName;
   private readonly _client: HTTPClient;
@@ -112,8 +116,8 @@ export class MercadoPagoProvider
     this.isSandbox = opts.isSandbox;
   }
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   private async unwrap<T>(result: {

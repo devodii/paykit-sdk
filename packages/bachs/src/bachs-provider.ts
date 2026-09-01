@@ -128,14 +128,14 @@ const WEBHOOK_TOLERANCE_SECONDS = 300;
 
 export class BachsProvider
   extends AbstractPayKitProvider
-  implements PayKitProvider<BachsMetadata, null, BachsRawEvents>
+  implements PayKitProvider<BachsMetadata, HTTPClient, BachsRawEvents>
 {
   readonly providerName = providerName;
   readonly isSandbox: boolean;
   private readonly _client: HTTPClient;
 
-  get _native() {
-    return null;
+  get _native(): HTTPClient {
+    return this._client;
   }
 
   constructor(private readonly opts: BachsOptions) {

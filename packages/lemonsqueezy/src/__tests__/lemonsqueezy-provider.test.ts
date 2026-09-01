@@ -1,15 +1,22 @@
+import * as crypto from 'crypto';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { LemonSqueezyProvider } from '../lemonsqueezy-provider';
-import * as crypto from 'crypto';
 
 describe('LemonSqueezyProvider', () => {
   let provider: LemonSqueezyProvider;
 
   beforeEach(() => {
-    provider = new LemonSqueezyProvider({ apiKey: 'test_key', isSandbox: true });
+    provider = new LemonSqueezyProvider({
+      apiKey: 'test_key',
+      isSandbox: true,
+    });
     // Mock the HTTP client
-    vi.spyOn(provider._native, 'post').mockImplementation(async () => ({ ok: true as const, value: undefined as never }));
-    vi.spyOn(provider._native, 'get').mockImplementation(async () => ({ ok: true as const, value: undefined as never }));
+    vi.spyOn(provider._native, 'post').mockImplementation(
+      async () => ({ ok: true as const, value: undefined as never }),
+    );
+    vi.spyOn(provider._native, 'get').mockImplementation(
+      async () => ({ ok: true as const, value: undefined as never }),
+    );
   });
 
   it('should initialize with correct name', () => {
@@ -37,7 +44,9 @@ describe('LemonSqueezyProvider', () => {
         },
       };
 
-      vi.spyOn(provider._native, 'post').mockResolvedValue(mockResponse);
+      vi.spyOn(provider._native, 'post').mockResolvedValue(
+        mockResponse,
+      );
 
       const customer = await provider.createCustomer({
         email: 'john@example.com',
@@ -46,22 +55,25 @@ describe('LemonSqueezyProvider', () => {
         provider_metadata: { store_id: 1 },
       });
 
-      expect(provider._native.post).toHaveBeenCalledWith('/customers', {
-        body: JSON.stringify({
-          data: {
-            type: 'customers',
-            attributes: {
-              name: 'John Doe',
-              email: 'john@example.com',
-            },
-            relationships: {
-              store: {
-                data: { type: 'stores', id: '1' },
+      expect(provider._native.post).toHaveBeenCalledWith(
+        '/customers',
+        {
+          body: JSON.stringify({
+            data: {
+              type: 'customers',
+              attributes: {
+                name: 'John Doe',
+                email: 'john@example.com',
+              },
+              relationships: {
+                store: {
+                  data: { type: 'stores', id: '1' },
+                },
               },
             },
-          },
-        }),
-      });
+          }),
+        },
+      );
 
       expect(customer.id).toBe('123');
       expect(customer.name).toBe('John Doe');
@@ -74,7 +86,11 @@ describe('LemonSqueezyProvider', () => {
       const secret = 'my_webhook_secret';
       const payloadBody = JSON.stringify({
         meta: { event_name: 'order_created' },
-        data: { id: 'order_123', type: 'orders', attributes: { total: 1000 } },
+        data: {
+          id: 'order_123',
+          type: 'orders',
+          attributes: { total: 1000 },
+        },
       });
 
       const hmac = crypto.createHmac('sha256', secret);
@@ -101,19 +117,29 @@ describe('LemonSqueezyProvider', () => {
 
     it('should throw ConfigurationError if no webhook secret is provided', async () => {
       await expect(
-        provider.handleWebhook({ body: '', headersAsObject: {}, fullUrl: '' }, null),
-      ).rejects.toThrow('Webhook secret is required for LemonSqueezy');
+        provider.handleWebhook(
+          { body: '', headersAsObject: {}, fullUrl: '' },
+          null,
+        ),
+      ).rejects.toThrow(
+        'Webhook secret is required for LemonSqueezy',
+      );
     });
 
     it('should throw OperationFailedError on invalid signature', async () => {
       const secret = 'my_webhook_secret';
-      const payloadBody = JSON.stringify({ meta: { event_name: 'test' }, data: {} });
+      const payloadBody = JSON.stringify({
+        meta: { event_name: 'test' },
+        data: {},
+      });
 
       await expect(
         provider.handleWebhook(
           {
             body: payloadBody,
-            headersAsObject: { 'x-signature': 'invalid_signature_here' },
+            headersAsObject: {
+              'x-signature': 'invalid_signature_here',
+            },
             fullUrl: 'http://localhost/webhook',
           },
           secret,

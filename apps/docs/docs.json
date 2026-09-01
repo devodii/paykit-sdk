@@ -48,7 +48,8 @@
         "pages": [
           "concepts/api-reference",
           "concepts/webhooks",
-          "concepts/error-handling"
+          "concepts/error-handling",
+          "concepts/http-client"
         ]
       },
       {

@@ -157,3 +157,13 @@ await paykit.checkouts.create({
   },
 });
 ```
+
+## Escape hatch
+
+`paykit._native` returns PayKit's [HTTP client](/concepts/http-client), already pointed at Mercado Pago and authenticated with your credentials. Use it to call endpoints PayKit does not map yet.
+
+```typescript
+const result = await paykit._native.get('/v1/customers/123');
+
+if (result.ok) console.log(result.value);
+```
